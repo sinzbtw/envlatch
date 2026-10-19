@@ -81,6 +81,15 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(len(issues), 1)
         self.assertNotIn("PRIVATE_CANARY", repr(issues))
 
+    def test_malformed_opening_lines_do_not_expose_later_secret_fragments(self):
+        for opening in ['KEY="bad\x00', 'BAD-KEY="bad', 'invalid "bad', 'KEY="closed"trailing']:
+            with self.subTest(opening=opening):
+                entries, issues = parse(opening + '\nPRIVATE_CANARY=secret\n"', "input")
+                self.assertEqual(entries, {})
+                self.assertEqual(len(issues), 1)
+                self.assertNotIn("PRIVATE_CANARY", repr(issues))
+                self.assertEqual(issues[0].line, 1)
+
     def test_invalid_keys(self):
         for key in ["1KEY", "BAD-KEY", "BAD.KEY", "BAD KEY", "КЛЮЧ", ""]:
             with self.subTest(key=key):
@@ -176,6 +185,90 @@ class ContractTests(unittest.TestCase):
         for secret in ["template-secret", "actual-secret", "extra-secret"]:
             self.assertNotIn(secret, rendered)
         self.assertIn("FAIL: 2 required key(s), 1 error(s), 1 warning(s).", rendered)
+
+
+class OverlayTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.template = self.write("template.env", "A=\nB=")
+
+    def write(self, name, content):
+        path = self.root / name
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def test_later_files_override_earlier_keys(self):
+        base = self.write("base.env", "A=\nB=base-secret")
+        local = self.write("local.env", "A=local-secret")
+        report = check(self.template, [base, str(local)])
+        self.assertTrue(report.valid)
+        self.assertEqual(report.environments, (str(base), str(local)))
+        self.assertEqual(report.environment, str(local))
+        self.assertNotIn("secret", repr(report))
+        reverse = check(self.template, [local, base])
+        self.assertFalse(reverse.valid)
+        self.assertEqual((reverse.issues[0].code, reverse.issues[0].path), ("empty_value", str(base)))
+
+    def test_blank_override_is_not_a_fallback(self):
+        base = self.write("base.env", "A=base\nB=base")
+        local = self.write("local.env", "# comment\nA=   # intentionally blank")
+        report = check(self.template, [base, local])
+        self.assertEqual(len(report.issues), 1)
+        issue = report.issues[0]
+        self.assertEqual((issue.code, issue.key, issue.path, issue.line),
+                         ("empty_value", "A", str(local), 2))
+
+    def test_shadowed_duplicates_and_syntax_still_fail(self):
+        base = self.write("base.env", "A=first\nA=duplicate\ninvalid-private-canary")
+        local = self.write("local.env", "A=good\nB=good")
+        report = check(self.template, [base, local])
+        self.assertFalse(report.valid)
+        self.assertEqual([(issue.code, issue.path, issue.line) for issue in report.issues],
+                         [("duplicate_key", str(base), 2), ("invalid_syntax", str(base), 3)])
+        self.assertNotIn("invalid-private-canary", repr(report))
+
+    def test_syntax_error_stops_only_its_file_and_later_files_are_checked(self):
+        base = self.write("base.env", 'BAD-KEY="bad\nPRIVATE_CANARY=secret\n"')
+        local = self.write("local.env", "A=good\nA=duplicate\nB=good")
+        report = check(self.template, [base, local])
+        self.assertEqual([(issue.code, issue.path) for issue in report.issues],
+                         [("invalid_key", str(base)), ("duplicate_key", str(local))])
+        self.assertNotIn("PRIVATE_CANARY", render_text(report))
+        self.assertEqual(report.errors, 2)
+
+    def test_diagnostics_preserve_each_winning_source(self):
+        self.template.write_text("A=\nB=\nMISSING=", encoding="utf-8")
+        base = self.write("base.env", "# base\nA=\nB=good\nEXTRA=one")
+        local = self.write("local.env", "# local\nB=\nEXTRA=two")
+        report = check(self.template, [base, local], strict=True)
+        observed = {issue.key: (issue.code, issue.path, issue.line) for issue in report.issues}
+        self.assertEqual(observed, {
+            "A": ("empty_value", str(base), 2),
+            "B": ("empty_value", str(local), 2),
+            "MISSING": ("missing_key", str(local), None),
+            "EXTRA": ("extra_key", str(local), 3),
+        })
+
+    def test_missing_intermediate_file_cannot_be_skipped(self):
+        base = self.write("base.env", "A=good\nB=good")
+        local = self.write("local.env", "A=good")
+        missing = self.root / "missing.env"
+        with self.assertRaises(InputError) as caught:
+            check(self.template, [base, missing, local])
+        self.assertIn(str(missing), str(caught.exception))
+
+    def test_empty_sequence_is_input_error(self):
+        with self.assertRaises(InputError):
+            check(self.template, [])
+
+    def test_single_path_string_and_single_item_sequence_are_compatible(self):
+        environment = self.write("actual.env", "A=one\nB=two")
+        expected = check(self.template, environment)
+        self.assertEqual(expected, check(str(self.template), str(environment)))
+        self.assertEqual(expected, check(self.template, (environment,)))
+        self.assertEqual(expected.environment, str(environment))
 
 
 class CliTests(unittest.TestCase):
@@ -281,6 +374,40 @@ class CliTests(unittest.TestCase):
                 self.assertIsNone(issue["path"])
                 self.assertIsNone(issue["line"])
                 self.assertIsNone(issue["key"])
+
+    def test_repeated_env_overlays_in_text_and_json(self):
+        overlay = Path(self.directory.name) / "overlay.env"
+        self.environment.write_text("TOKEN=", encoding="utf-8")
+        overlay.write_text("TOKEN=unique-private-canary", encoding="utf-8")
+        result = self.run_cli(*self.args(), "--env", str(overlay))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PASS", result.stdout)
+        result = self.run_cli(*self.args(), "--env", str(overlay), "--format", "json")
+        document = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(document["environments"], [str(self.environment), str(overlay)])
+        self.assertEqual((document["status"], document["schema_version"]), ("pass", 1))
+        self.assertNotIn("unique-private-canary", result.stdout)
+        overlay.write_text("# comment\nTOKEN=", encoding="utf-8")
+        result = self.run_cli(*self.args(), "--env", str(overlay), "--format", "json")
+        document = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((document["issues"][0]["path"], document["issues"][0]["line"]),
+                         (str(overlay), 2))
+
+    def test_json_missing_overlay_preserves_all_requested_paths(self):
+        missing = Path(self.directory.name) / "missing.env"
+        last = Path(self.directory.name) / "last.env"
+        last.write_text("TOKEN=unique-private-canary", encoding="utf-8")
+        result = self.run_cli(*self.args(), "--env", str(missing), "--env", str(last),
+                              "--format", "json")
+        document = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(document["status"], "input_error")
+        self.assertEqual(document["environments"], [str(self.environment), str(missing), str(last)])
+        self.assertEqual(document["errors"], 1)
+        self.assertNotIn("unique-private-canary", result.stdout)
 
     def test_json_invalid_format_is_usage_error(self):
         result = self.run_cli(*self.args(), "--format", "xml")

@@ -8,11 +8,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-EnvLatch is a small, dependency-free Python command-line tool that checks a local `.env` file against the keys in a committed `.env.example`. Use it after onboarding, before running a service, or in a deployment check to find configuration drift early.
+EnvLatch is a small, dependency-free Python command-line tool that checks one or more local `.env` files against the keys in a committed `.env.example`. Use it after onboarding, before running a service, or in a deployment check to find configuration drift early.
 
 ## What it checks
 
-- Every key in the template must exist in the environment file and have a nonblank value.
+- Every key in the template must exist in the effective environment configuration and have a nonblank value.
 - Unexpected keys produce warnings; `--strict` makes them errors.
 - Duplicate keys and malformed assignments produce errors with line numbers.
 - Reports include variable names and locations, never their values or source lines.
@@ -91,7 +91,7 @@ The module entry point works too:
 python -m envlatch --template .env.example --env .env
 ~~~
 
-Both paths are required. Template values are illustrative and are **not** defaults: even a key with an empty template value requires a nonblank value in `.env`. A value such as `replace-me` passes the presence check; replace placeholders with usable configuration yourself.
+The template path and at least one environment file path are required. Template values are illustrative and are **not** defaults: even a key with an empty template value requires a nonblank value in `.env`. A value such as `replace-me` passes the presence check; replace placeholders with usable configuration yourself.
 
 Commit `.env.example`, but keep real environment files local. The included `.gitignore` excludes `.env` and local environment variants.
 
@@ -122,6 +122,22 @@ envlatch --help
 | `0` | No errors; warnings may be present. |
 | `1` | Validation errors or invalid dotenv syntax. |
 | `2` | Invalid CLI usage, unreadable files, or non-UTF-8 input. |
+
+## Layered environment files
+
+Repeat `--env` to validate a shared base configuration with local or deployment overrides:
+
+~~~sh
+envlatch --template .env.example --env .env --env .env.local --strict
+~~~
+
+Files are applied in command-line order: a later file overrides the same key from an earlier file. Required keys may be spread across files; EnvLatch checks the combined effective configuration. A blank value in a later file overrides an earlier nonblank value and fails validation when the key is required.
+
+For example, if `.env` defines `DATABASE_URL` and `API_TOKEN`, and `.env.local` defines `PORT`, the combined configuration satisfies the three-key template. If `.env.local` also contains `API_TOKEN=`, the required token is reported as blank.
+
+Duplicate keys within a single file and syntax errors in any input file remain errors, even when a later file overrides the affected key. Diagnostics for effective keys point to the winning definition; missing-key diagnostics refer to the last environment file. JSON reports list `environments` in the exact input order, including on file input errors.
+
+The single-file commands above continue to work. These layers are used only for validation; EnvLatch does not modify your process environment.
 
 ## JSON reports
 
@@ -176,7 +192,9 @@ REFERENCE=$OTHER_VARIABLE
 - Quoted multiline values, NUL characters, invalid keys, missing `=`, and duplicate keys are rejected.
 - Required keys with empty or whitespace-only environment values fail the nonblank check.
 
-The same parser checks the template and the environment file. Use a dedicated dotenv template, not a shell script.
+Parsing stops at the first malformed statement in each file, so rejected multiline content cannot become a reported key. Duplicate assignments are reported separately, and later files are still checked.
+
+The same parser checks the template and every environment file. Use a dedicated dotenv template, not a shell script.
 
 ## Development
 
