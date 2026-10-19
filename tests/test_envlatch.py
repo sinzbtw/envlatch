@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -224,6 +225,68 @@ class CliTests(unittest.TestCase):
         result = self.run_cli()
         self.assertEqual(result.returncode, 2)
         self.assertIn("usage:", result.stderr)
+
+    def json_result(self, *arguments):
+        result = self.run_cli(*self.args(), "--format", "json", *arguments)
+        self.assertEqual(result.stderr, "")
+        document = json.loads(result.stdout)
+        self.assertEqual(document["schema_version"], 1)
+        self.assertEqual(document["template"], str(self.template))
+        self.assertEqual(document["environments"], [str(self.environment)])
+        self.assertEqual(set(document), {"schema_version", "status", "template", "environments",
+                                         "checked_keys", "errors", "warnings", "issues"})
+        self.assertNotIn("unique-private-canary", result.stdout)
+        return result, document
+
+    def test_json_success_and_roundtrip(self):
+        result, document = self.json_result()
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(document["status"], "pass")
+        self.assertEqual(document["checked_keys"], 1)
+        self.assertEqual(document["issues"], [])
+        self.assertEqual(document, json.loads(json.dumps(document)))
+        self.assertEqual(result.stdout, self.run_cli(*self.args(), "--format", "json").stdout)
+
+    def test_json_violation_and_safe_issue_fields(self):
+        self.environment.write_text("OTHER=unique-private-canary", encoding="utf-8")
+        result, document = self.json_result()
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((document["status"], document["errors"], document["warnings"]), ("fail", 1, 1))
+        issue = document["issues"][0]
+        self.assertEqual(set(issue), {"severity", "code", "path", "message", "line", "key"})
+        self.assertEqual((issue["code"], issue["key"], issue["line"]), ("missing_key", "TOKEN", None))
+
+    def test_json_warning_and_strict(self):
+        self.environment.write_text("TOKEN=ok\nEXTRA=unique-private-canary", encoding="utf-8")
+        result, document = self.json_result()
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual((document["status"], document["warnings"]), ("pass", 1))
+        result, document = self.json_result("--strict")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((document["status"], document["errors"], document["warnings"]), ("fail", 1, 0))
+
+    def test_json_input_errors_have_same_schema(self):
+        for invalid_utf8 in (False, True):
+            with self.subTest(invalid_utf8=invalid_utf8):
+                if invalid_utf8:
+                    self.environment.write_bytes(b"TOKEN=\xffunique-private-canary")
+                else:
+                    self.environment.unlink()
+                result, document = self.json_result()
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual((document["status"], document["checked_keys"], document["errors"],
+                                  document["warnings"]), ("input_error", 0, 1, 0))
+                issue = document["issues"][0]
+                self.assertEqual((issue["severity"], issue["code"]), ("error", "input_error"))
+                self.assertIsNone(issue["path"])
+                self.assertIsNone(issue["line"])
+                self.assertIsNone(issue["key"])
+
+    def test_json_invalid_format_is_usage_error(self):
+        result = self.run_cli(*self.args(), "--format", "xml")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("invalid choice", result.stderr)
 
     def test_version(self):
         result = self.run_cli("--version")
