@@ -31,7 +31,7 @@ def render_json(report: Report, *, status: str | None = None) -> str:
         "schema_version": 1,
         "status": status or ("pass" if report.valid else "fail"),
         "template": report.template,
-        "environments": [report.environment],
+        "environments": list(report.environments),
         "checked_keys": report.checked_keys,
         "errors": report.errors,
         "warnings": report.warnings,
@@ -47,7 +47,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--version", action="version", version=f"EnvLatch {__version__}")
     parser.add_argument("--template", required=True, metavar="PATH", help="dotenv contract file")
-    parser.add_argument("--env", required=True, metavar="PATH", help="dotenv file to validate")
+    parser.add_argument("--env", required=True, action="append", metavar="PATH",
+                        help="dotenv file; repeat to overlay files in order (later keys win)")
     parser.add_argument("--strict", action="store_true", help="treat extra keys as errors")
     parser.add_argument("--format", choices=("text", "json"), default="text",
                         help="output format (default: text)")
@@ -56,7 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = check(arguments.template, arguments.env, strict=arguments.strict)
     except InputError as error:
         if arguments.format == "json":
-            report = Report(arguments.template, arguments.env, 0,
+            report = Report(arguments.template, tuple(arguments.env), 0,
                             (Issue("error", "input_error", None, str(error)),))
             print(render_json(report, status="input_error"))
         else:
