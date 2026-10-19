@@ -192,6 +192,8 @@ REFERENCE=$OTHER_VARIABLE
 - Quoted multiline values, NUL characters, invalid keys, missing `=`, and duplicate keys are rejected.
 - Required keys with empty or whitespace-only environment values fail the nonblank check.
 
+Parsing stops at the first malformed statement in each file, so rejected multiline content cannot become a reported key. Duplicate assignments are reported separately, and later files are still checked.
+
 The same parser checks the template and every environment file. Use a dedicated dotenv template, not a shell script.
 
 ## Development
