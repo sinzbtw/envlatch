@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "envlatch"
+version = "0.1.0"
+description = "Check dotenv files against a contract without exposing values."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "sinzbtw"}]
+keywords = ["dotenv", "environment", "configuration", "validation", "cli"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.scripts]
+envlatch = "envlatch.cli:main"
+
+[project.urls]
+Repository = "https://github.com/sinzbtw/envlatch"
+Issues = "https://github.com/sinzbtw/envlatch/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
