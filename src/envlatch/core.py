@@ -16,7 +16,7 @@ class Issue:
 
     severity: str
     code: str
-    path: str
+    path: str | None
     message: str
     line: int | None = None
     key: str | None = None

@@ -123,6 +123,33 @@ envlatch --help
 | `1` | Validation errors or invalid dotenv syntax. |
 | `2` | Invalid CLI usage, unreadable files, or non-UTF-8 input. |
 
+## JSON reports
+
+Request a machine-readable report for scripts or CI:
+
+~~~sh
+envlatch --template .env.example --env .env --format json
+~~~
+
+A successful check of the three-key example produces this JSON structure:
+
+~~~json
+{
+  "schema_version": 1,
+  "status": "pass",
+  "template": ".env.example",
+  "environments": [".env"],
+  "checked_keys": 3,
+  "errors": 0,
+  "warnings": 0,
+  "issues": []
+}
+~~~
+
+JSON is deterministic and written to standard output for completed checks and file input errors. `status` is `pass`, `fail`, or `input_error`. Each issue contains `severity`, `code`, `path`, `message`, `line`, and `key`; `line` and `key` may be `null` when unavailable. Reports never contain environment values.
+
+Exit codes remain `0`, `1`, and `2` as listed above. Invalid CLI arguments still produce human-readable usage errors on standard error, even when `--format json` is requested.
+
 ## Supported dotenv syntax
 
 EnvLatch deliberately supports a constrained, single-line dotenv format:
@@ -147,7 +174,7 @@ REFERENCE=$OTHER_VARIABLE
 - After a closing quote, only whitespace and a comment are allowed.
 - Dollar references are literal text, with no expansion or shell execution.
 - Quoted multiline values, NUL characters, invalid keys, missing `=`, and duplicate keys are rejected.
-- Empty and whitespace-only environment values fail the nonblank check.
+- Required keys with empty or whitespace-only environment values fail the nonblank check.
 
 The same parser checks the template and the environment file. Use a dedicated dotenv template, not a shell script.
 
