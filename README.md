@@ -12,7 +12,7 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 
 ## What it checks
 
-- Every key in the template must exist in the effective environment configuration and have a nonblank value.
+- Every template key is required and nonblank by default; `--optional KEY` allows selected keys to be missing or blank.
 - Unexpected keys produce warnings; `--strict` makes them errors.
 - Duplicate keys and malformed assignments produce errors with line numbers.
 - Reports include variable names and locations, never their values or source lines.
@@ -91,7 +91,7 @@ The module entry point works too:
 python -m envlatch --template .env.example --env .env
 ~~~
 
-The template path and at least one environment file path are required. Template values are illustrative and are **not** defaults: even a key with an empty template value requires a nonblank value in `.env`. A value such as `replace-me` passes the presence check; replace placeholders with usable configuration yourself.
+The template path and at least one environment file path are required. Template values are illustrative and are **not** defaults: even a key with an empty template value requires a nonblank value in `.env`, unless it is explicitly marked optional. A value such as `replace-me` passes the presence check; replace placeholders with usable configuration yourself.
 
 Commit `.env.example`, but keep real environment files local. The included `.gitignore` excludes `.env` and local environment variants.
 
@@ -121,7 +121,30 @@ envlatch --help
 | --- | --- |
 | `0` | No errors; warnings may be present. |
 | `1` | Validation errors or invalid dotenv syntax. |
-| `2` | Invalid CLI usage, unreadable files, or non-UTF-8 input. |
+| `2` | Invalid CLI usage or optional-key names, unreadable files, or non-UTF-8 input. |
+
+## Optional keys
+
+Some settings enable integrations that are deliberately absent in local development. Repeat `--optional KEY` to allow a declared template key to be missing or blank while keeping other keys required:
+
+~~~sh
+envlatch --template examples/optional/.env.example --env .env --optional SENTRY_DSN --optional LOG_LEVEL --strict
+~~~
+
+The committed [optional-key example](examples/optional/.env.example) declares the usual `DATABASE_URL`, `API_TOKEN`, and `PORT`, plus `SENTRY_DSN` and `LOG_LEVEL`. This self-contained command checks the example without creating local configuration:
+
+~~~sh
+envlatch --template examples/optional/.env.example --env .env.example --optional SENTRY_DSN --optional LOG_LEVEL --strict --format json
+~~~
+
+- Optional names must exist in the template, with matching case. A typo produces `unknown_optional_key` and exit code `1`, even if that key exists in the environment file.
+- Invalid optional names produce exit code `2`; names use the same ASCII grammar as dotenv keys.
+- Optional keys may be absent, blank, or nonblank. Syntax and duplicate-key checks still apply.
+- `--strict` still rejects keys outside the template. Optional keys are declared settings, not an extra-key allowlist.
+- The policy applies to the final merged configuration, so a blank overlay is allowed for an optional key.
+- `checked_keys` in JSON and the text summary count required keys only. JSON schema version remains `1`.
+
+Without `--optional`, every template key remains required. Python callers can pass `optional_keys=["SENTRY_DSN", "LOG_LEVEL"]` to `check()`.
 
 ## Layered environment files
 
@@ -162,7 +185,7 @@ A successful check of the three-key example produces this JSON structure:
 }
 ~~~
 
-JSON is deterministic and written to standard output for completed checks and file input errors. `status` is `pass`, `fail`, or `input_error`. Each issue contains `severity`, `code`, `path`, `message`, `line`, and `key`; `line` and `key` may be `null` when unavailable. Reports never contain environment values.
+JSON is deterministic and written to standard output for completed checks and file or optional-key input errors. `status` is `pass`, `fail`, or `input_error`. Each issue contains `severity`, `code`, `path`, `message`, `line`, and `key`; `line` and `key` may be `null` when unavailable. Reports never contain environment values.
 
 Exit codes remain `0`, `1`, and `2` as listed above. Invalid CLI arguments still produce human-readable usage errors on standard error, even when `--format json` is requested.
 

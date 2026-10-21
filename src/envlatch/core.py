@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -56,7 +56,7 @@ class Report:
 
 
 class InputError(Exception):
-    """A file could not be read as UTF-8; messages never contain its contents."""
+    """Invalid input or configuration; messages never contain dotenv values."""
 
 
 def _closing_quote(value: str) -> int | None:
@@ -150,8 +150,18 @@ def check(
     environment: str | Path | Sequence[str | Path],
     *,
     strict: bool = False,
+    optional_keys: Iterable[str] = (),
 ) -> Report:
     """Validate a contract against files merged in order, with later keys winning."""
+    if isinstance(optional_keys, (str, bytes)):
+        raise InputError("Optional keys must be a sequence of names, not a single string.")
+    try:
+        optional_names = tuple(optional_keys)
+    except TypeError:
+        raise InputError("Optional keys must be an iterable of names.") from None
+    if any(not isinstance(key, str) or not _KEY.fullmatch(key) for key in optional_names):
+        raise InputError("Optional keys must use ASCII environment variable names.")
+    optional = frozenset(optional_names)
     template_path = Path(template)
     if isinstance(environment, (str, Path)):
         environment_paths = (Path(environment),)
@@ -172,7 +182,10 @@ def check(
 
     # A broken contract cannot reliably define required keys.
     if not template_issues:
-        for key in sorted(expected):
+        for key in sorted(optional - expected.keys()):
+            issues.append(Issue("error", "unknown_optional_key", str(template_path),
+                                f"Optional key '{key}' is absent from the template.", key=key))
+        for key in sorted(expected.keys() - optional):
             if key not in actual:
                 issues.append(Issue("error", "missing_key", str(environment_paths[-1]),
                                     f"Required key '{key}' is missing.", key=key))
@@ -183,4 +196,4 @@ def check(
             issues.append(Issue("error" if strict else "warning", "extra_key", sources[key],
                                 f"Key '{key}' is absent from the template.", actual[key].line, key))
     return Report(str(template_path), tuple(str(path) for path in environment_paths),
-                  len(expected), tuple(issues))
+                  len(expected.keys() - optional), tuple(issues))

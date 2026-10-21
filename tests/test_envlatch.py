@@ -418,7 +418,7 @@ class CliTests(unittest.TestCase):
     def test_version(self):
         result = self.run_cli("--version")
         self.assertEqual(result.returncode, 0)
-        self.assertIn("EnvLatch 0.1.0", result.stdout)
+        self.assertIn("EnvLatch 0.2.0", result.stdout)
 
 
 if __name__ == "__main__":

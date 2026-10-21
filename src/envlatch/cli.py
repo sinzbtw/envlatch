@@ -50,11 +50,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--env", required=True, action="append", metavar="PATH",
                         help="dotenv file; repeat to overlay files in order (later keys win)")
     parser.add_argument("--strict", action="store_true", help="treat extra keys as errors")
+    parser.add_argument("--optional", action="append", default=[], metavar="KEY",
+                        help="template key allowed to be missing or blank; repeat for more keys")
     parser.add_argument("--format", choices=("text", "json"), default="text",
                         help="output format (default: text)")
     arguments = parser.parse_args(argv)
     try:
-        report = check(arguments.template, arguments.env, strict=arguments.strict)
+        report = check(arguments.template, arguments.env, strict=arguments.strict,
+                       optional_keys=arguments.optional)
     except InputError as error:
         if arguments.format == "json":
             report = Report(arguments.template, tuple(arguments.env), 0,
