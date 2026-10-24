@@ -16,7 +16,7 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 - Unexpected keys produce warnings; `--strict` makes them errors.
 - Duplicate keys and malformed assignments produce errors with line numbers.
 - Reports include variable names and locations, never their values or source lines.
-- Results are deterministic and use exit codes suitable for scripts and CI.
+- Deterministic text, JSON, and GitHub Actions reports use exit codes suitable for scripts and CI.
 
 EnvLatch reads files only. It does not load variables into your process, evaluate shell commands, expand references, or read values from the current process environment. It validates presence and nonblank values; it does not validate credentials, URL formats, or application-specific types.
 
@@ -189,6 +189,28 @@ JSON is deterministic and written to standard output for completed checks and fi
 
 Exit codes remain `0`, `1`, and `2` as listed above. Invalid CLI arguments still produce human-readable usage errors on standard error, even when `--format json` is requested.
 
+## GitHub Actions annotations
+
+Use `--format github` to turn errors and warnings into native [GitHub Actions annotations](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message). After installing EnvLatch and preparing the environment file, add a workflow step:
+
+~~~yaml
+- name: Validate environment configuration
+  run: envlatch --template .env.example --env .env --strict --format github
+~~~
+
+An empty required value produces a workflow command such as:
+
+~~~text
+::error title=EnvLatch%3A empty_value,file=.env,line=2::Required key 'TOKEN' is blank.
+~~~
+
+- Each diagnostic becomes an `error` or `warning` annotation, with its code in the title and its file/line when available. Missing-key diagnostics have no known line; input errors become general error annotations.
+- A normal PASS/FAIL summary follows the annotations. Successful checks without diagnostics print only that summary.
+- Exit codes stay `0` for success or warnings, `1` for validation errors, and `2` for input/configuration errors. Invalid CLI usage still prints a normal message to standard error.
+- Values and raw dotenv lines remain absent. Command delimiters and line breaks in filenames/messages are escaped so a diagnostic cannot inject another workflow command.
+- Use repository-relative paths for source navigation. GitHub can link to a file present in the repository; local or generated `.env` files still get annotations but may have no source link. Keep real secrets out of Git.
+- The format works with `--optional`, repeated `--env`, and `--strict`. Outside Actions, the workflow commands appear as ordinary text. The default text and JSON formats are unchanged.
+
 ## Supported dotenv syntax
 
 EnvLatch deliberately supports a constrained, single-line dotenv format:
@@ -231,6 +253,8 @@ python -m unittest discover -s tests -v
 The package lives in `src/envlatch/`; tests live in `tests/`. The runtime uses only the Python standard library. GitHub Actions runs the test suite on Linux with Python 3.10 and 3.13, and on Windows with Python 3.13.
 
 For a bug report, include your command, Python version, and a minimal example using invented values. Keep both README language versions in sync when changing behavior.
+
+GitHub Releases distribute tagged source archives only. Wheel builds are used for local installation checks and are not uploaded as release assets.
 
 ## License
 

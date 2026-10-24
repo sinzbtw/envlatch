@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-10-24
+
+- Add `--format github` for native GitHub Actions error and warning annotations with source locations.
+- Escape workflow-command properties and messages, preserving value-free diagnostics and existing exit codes.
+- Render input/configuration errors as general error annotations; invalid CLI usage stays on standard error.
+- Keep text output, JSON schema version 1, optional keys, strict checks and overlays compatible.
+- Add English/Russian workflow examples and document source-only GitHub releases.
+
 ## 0.2.0 — 2026-10-22
 
 - Add repeatable `--optional KEY` and Python API `optional_keys` for template keys allowed to be missing or blank.
