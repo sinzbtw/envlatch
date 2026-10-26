@@ -79,12 +79,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--strict", action="store_true", help="treat extra keys as errors")
     parser.add_argument("--optional", action="append", default=[], metavar="KEY",
                         help="template key allowed to be missing or blank; repeat for more keys")
+    parser.add_argument("--allow-extra", action="append", default=[], metavar="PATTERN",
+                        help="allow extra keys matching a case-sensitive '*'/'?' pattern; repeat for more")
     parser.add_argument("--format", choices=("text", "json", "github"), default="text",
                         help="output format (default: text)")
     arguments = parser.parse_args(argv)
     try:
         report = check(arguments.template, arguments.env, strict=arguments.strict,
-                       optional_keys=arguments.optional)
+                       optional_keys=arguments.optional, allow_extra=arguments.allow_extra)
     except InputError as error:
         if arguments.format in ("json", "github"):
             report = Report(arguments.template, tuple(arguments.env), 0,

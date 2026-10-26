@@ -13,7 +13,7 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 ## What it checks
 
 - Every template key is required and nonblank by default; `--optional KEY` allows selected keys to be missing or blank.
-- Unexpected keys produce warnings; `--strict` makes them errors.
+- Unexpected keys produce warnings; `--strict` makes them errors. Use `--allow-extra PATTERN` for explicit exceptions.
 - Duplicate keys and malformed assignments produce errors with line numbers.
 - Reports include variable names and locations, never their values or source lines.
 - Deterministic text, JSON, and GitHub Actions reports use exit codes suitable for scripts and CI.
@@ -121,7 +121,7 @@ envlatch --help
 | --- | --- |
 | `0` | No errors; warnings may be present. |
 | `1` | Validation errors or invalid dotenv syntax. |
-| `2` | Invalid CLI usage or optional-key names, unreadable files, or non-UTF-8 input. |
+| `2` | Invalid CLI usage, optional-key names or allow-extra patterns; unreadable files or non-UTF-8 input. |
 
 ## Optional keys
 
@@ -140,11 +140,34 @@ envlatch --template examples/optional/.env.example --env .env.example --optional
 - Optional names must exist in the template, with matching case. A typo produces `unknown_optional_key` and exit code `1`, even if that key exists in the environment file.
 - Invalid optional names produce exit code `2`; names use the same ASCII grammar as dotenv keys.
 - Optional keys may be absent, blank, or nonblank. Syntax and duplicate-key checks still apply.
-- `--strict` still rejects keys outside the template. Optional keys are declared settings, not an extra-key allowlist.
+- `--strict` rejects keys outside the template unless explicitly permitted by `--allow-extra`. Optional keys remain declared settings and do not automatically allow unrelated extra keys.
 - The policy applies to the final merged configuration, so a blank overlay is allowed for an optional key.
 - `checked_keys` in JSON and the text summary count required keys only. JSON schema version remains `1`.
 
 Without `--optional`, every template key remains required. Python callers can pass `optional_keys=["SENTRY_DSN", "LOG_LEVEL"]` to `check()`.
+
+## Allowed extra keys
+
+Shared environment files sometimes contain tool settings that are intentionally outside an application's contract. Repeat `--allow-extra PATTERN` to allow exact names or simple wildcard patterns without weakening other checks:
+
+~~~sh
+envlatch --template .env.example --env .env --strict --allow-extra DEBUG --allow-extra 'CI_*'
+~~~
+
+The committed [development environment example](examples/allow-extra/development.env) contains the three usual application keys plus `DEBUG` and `TOOL_CACHE_DIR`. Try it directly:
+
+~~~sh
+envlatch --template .env.example --env examples/allow-extra/development.env --strict --allow-extra DEBUG --allow-extra 'TOOL_*' --format json
+~~~
+
+- Patterns are case-sensitive on every OS. `*` matches zero or more characters; `?` matches one character. Quote wildcard patterns so your shell passes them unchanged.
+- Patterns accept ASCII letters, digits, underscores, `*`, and `?` only. Empty patterns and unsupported syntax such as character classes produce an input error (exit code `2`).
+- Matching extra keys produce neither warnings nor errors, with or without `--strict`. Unmatched extra keys keep their normal warning/error behavior. An unused pattern is allowed.
+- An allowance applies only to keys absent from the template. It never makes a required key optional or permits its value to be blank. Even `--allow-extra '*'` preserves required-key checks.
+- Syntax, duplicate-key, file-reading, and optional-key configuration errors remain errors. Overlay order and source locations are preserved.
+- The option works with text, JSON, and GitHub Actions output. JSON schema version `1` and `checked_keys` remain unchanged.
+
+Python callers can use `check(template, environment, strict=True, allow_extra=["DEBUG", "CI_*"])`. To make a declared key optional instead, use `--optional KEY`.
 
 ## Layered environment files
 
@@ -185,7 +208,7 @@ A successful check of the three-key example produces this JSON structure:
 }
 ~~~
 
-JSON is deterministic and written to standard output for completed checks and file or optional-key input errors. `status` is `pass`, `fail`, or `input_error`. Each issue contains `severity`, `code`, `path`, `message`, `line`, and `key`; `line` and `key` may be `null` when unavailable. Reports never contain environment values.
+JSON is deterministic and written to standard output for completed checks and file or configuration input errors. `status` is `pass`, `fail`, or `input_error`. Each issue contains `severity`, `code`, `path`, `message`, `line`, and `key`; `line` and `key` may be `null` when unavailable. Reports never contain environment values.
 
 Exit codes remain `0`, `1`, and `2` as listed above. Invalid CLI arguments still produce human-readable usage errors on standard error, even when `--format json` is requested.
 
@@ -209,7 +232,7 @@ An empty required value produces a workflow command such as:
 - Exit codes stay `0` for success or warnings, `1` for validation errors, and `2` for input/configuration errors. Invalid CLI usage still prints a normal message to standard error.
 - Values and raw dotenv lines remain absent. Command delimiters and line breaks in filenames/messages are escaped so a diagnostic cannot inject another workflow command.
 - Use repository-relative paths for source navigation. GitHub can link to a file present in the repository; local or generated `.env` files still get annotations but may have no source link. Keep real secrets out of Git.
-- The format works with `--optional`, repeated `--env`, and `--strict`. Outside Actions, the workflow commands appear as ordinary text. The default text and JSON formats are unchanged.
+- The format works with `--optional`, `--allow-extra`, repeated `--env`, and `--strict`. Outside Actions, the workflow commands appear as ordinary text. The default text and JSON formats are unchanged.
 
 ## Supported dotenv syntax
 
