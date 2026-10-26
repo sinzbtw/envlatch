@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-10-26
+
+- Add repeatable `--allow-extra PATTERN` and Python API `allow_extra` for controlled extra-key allowances.
+- Support case-sensitive `*` and `?` patterns and exact names consistently on Windows and Linux.
+- Suppress only matching extra-key diagnostics; required, blank, syntax, duplicate and input checks remain active.
+- Reject malformed allowance configuration with safe input errors; retain JSON schema 1 and source provenance.
+- Add a runnable development example, cross-platform CI coverage and matching English/Russian instructions.
+
 ## 0.3.0 — 2026-10-24
 
 - Add `--format github` for native GitHub Actions error and warning annotations with source locations.

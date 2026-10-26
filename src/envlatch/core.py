@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path
 import re
 
 _KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _EXPORT = re.compile(r"export[ \t]+")
+_EXTRA_PATTERN = re.compile(r"[A-Za-z0-9_*?]+\Z")
 
 
 @dataclass(frozen=True)
@@ -151,6 +153,7 @@ def check(
     *,
     strict: bool = False,
     optional_keys: Iterable[str] = (),
+    allow_extra: Iterable[str] = (),
 ) -> Report:
     """Validate a contract against files merged in order, with later keys winning."""
     if isinstance(optional_keys, (str, bytes)):
@@ -162,6 +165,15 @@ def check(
     if any(not isinstance(key, str) or not _KEY.fullmatch(key) for key in optional_names):
         raise InputError("Optional keys must use ASCII environment variable names.")
     optional = frozenset(optional_names)
+    if isinstance(allow_extra, (str, bytes)):
+        raise InputError("Allow-extra patterns must be an iterable of patterns, not a single string.")
+    try:
+        extra_patterns = tuple(allow_extra)
+    except TypeError:
+        raise InputError("Allow-extra patterns must be an iterable of patterns.") from None
+    if any(not isinstance(pattern, str) or not _EXTRA_PATTERN.fullmatch(pattern)
+           for pattern in extra_patterns):
+        raise InputError("Allow-extra patterns must contain only ASCII letters, digits, underscores, '*' or '?'.")
     template_path = Path(template)
     if isinstance(environment, (str, Path)):
         environment_paths = (Path(environment),)
@@ -193,6 +205,8 @@ def check(
                 issues.append(Issue("error", "empty_value", sources[key],
                                     f"Required key '{key}' is blank.", actual[key].line, key))
         for key in sorted(actual.keys() - expected.keys()):
+            if any(fnmatchcase(key, pattern) for pattern in extra_patterns):
+                continue
             issues.append(Issue("error" if strict else "warning", "extra_key", sources[key],
                                 f"Key '{key}' is absent from the template.", actual[key].line, key))
     return Report(str(template_path), tuple(str(path) for path in environment_paths),
