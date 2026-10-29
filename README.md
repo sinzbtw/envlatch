@@ -16,6 +16,7 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 - Unexpected keys produce warnings; `--strict` makes them errors. Use `--allow-extra PATTERN` for explicit exceptions.
 - Duplicate keys and malformed assignments produce errors with line numbers.
 - Reports include variable names and locations, never their values or source lines.
+- Save paths and validation policy in an explicit JSON project config, with CLI overrides.
 - Deterministic text, JSON, and GitHub Actions reports use exit codes suitable for scripts and CI.
 
 EnvLatch reads files only. It does not load variables into your process, evaluate shell commands, expand references, or read values from the current process environment. It validates presence and nonblank values; it does not validate credentials, URL formats, or application-specific types.
@@ -91,7 +92,7 @@ The module entry point works too:
 python -m envlatch --template .env.example --env .env
 ~~~
 
-The template path and at least one environment file path are required. Template values are illustrative and are **not** defaults: even a key with an empty template value requires a nonblank value in `.env`, unless it is explicitly marked optional. A value such as `replace-me` passes the presence check; replace placeholders with usable configuration yourself.
+A template path and at least one environment file path are required, supplied directly or through `--config`. Template values are illustrative and are **not** defaults: even a key with an empty template value requires a nonblank value in `.env`, unless it is explicitly marked optional. A value such as `replace-me` passes the presence check; replace placeholders with usable configuration yourself.
 
 Commit `.env.example`, but keep real environment files local. The included `.gitignore` excludes `.env` and local environment variants.
 
@@ -121,7 +122,63 @@ envlatch --help
 | --- | --- |
 | `0` | No errors; warnings may be present. |
 | `1` | Validation errors or invalid dotenv syntax. |
-| `2` | Invalid CLI usage, optional-key names or allow-extra patterns; unreadable files or non-UTF-8 input. |
+| `2` | Invalid CLI usage or check settings; unreadable files, invalid JSON config, or non-UTF-8 input. |
+
+## Project configuration
+
+Store paths and validation policy once, then run:
+
+~~~sh
+envlatch --config envlatch.json
+~~~
+
+The committed [envlatch.json](envlatch.json) checks your local `.env` against `.env.example` in strict mode. Create your local `.env` as described in Quick start. A configuration can use these fields:
+
+~~~json
+{
+  "template": ".env.example",
+  "env": [".env", ".env.local"],
+  "strict": true,
+  "optional": ["PORT"],
+  "allow_extra": ["CI_*"],
+  "format": "text"
+}
+~~~
+
+The second environment file in this example must exist; omit it if you do not use an overlay. Configuration stores paths, key names and patterns, not dotenv values. Keep real secrets in local environment files.
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `template` | Nonempty path string | Required through config or CLI |
+| `env` | Nonempty array of path strings, in overlay order | Required through config or CLI |
+| `strict` | Boolean | `false` |
+| `optional` | Array of key names | `[]` |
+| `allow_extra` | Array of allowance patterns | `[]` |
+| `format` | `text`, `json`, or `github` | `text` |
+
+Settings are loaded only when `--config` is supplied. UTF-8, BOM and CRLF are supported; use standard JSON without comments. Unknown fields, duplicate fields, invalid types, blank entries and invalid Unicode are rejected. Paths and strings are literal: shell commands, home shortcuts and environment references are not expanded or executed.
+
+### Paths and overrides
+
+- Paths inside JSON are resolved relative to the configuration file's directory, so the same configuration works from another working directory. These resolved paths appear as absolute paths in reports.
+- Explicit CLI options override the corresponding configuration setting. CLI `--template` and `--env` paths stay relative to the current working directory.
+- Supplying `--env` replaces the entire configured `env` array. Repeated CLI entries form the new overlay list in their given order.
+- Supplying `--optional` or `--allow-extra` replaces that configured list; repeated flags form the replacement list. An empty array in JSON clears that setting.
+- `--strict` enables strict mode; `--no-strict` disables it even if JSON enables it. These flags are mutually exclusive.
+- `--format` overrides the configured output format. Existing commands without a config continue to work.
+
+~~~sh
+envlatch --config envlatch.json --env .env.production --format json
+envlatch --config envlatch.json --no-strict
+~~~
+
+For a self-contained example using committed, invented environment values:
+
+~~~sh
+envlatch --config examples/config/envlatch.json --format json
+~~~
+
+An unreadable or invalid configuration produces exit code `2` without echoing its contents. If the configuration cannot be loaded, output defaults to a text error on standard error; pass `--format json` or `--format github` explicitly to choose structured errors before loading. Missing required paths and invalid CLI arguments remain normal usage errors. JSON structure and types are checked even for fields overridden by CLI. The report's JSON schema remains version `1`.
 
 ## Optional keys
 

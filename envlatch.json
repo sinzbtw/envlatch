@@ -1,0 +1,5 @@
+{
+  "template": ".env.example",
+  "env": [".env"],
+  "strict": true
+}

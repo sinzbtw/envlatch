@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 — 2026-10-29
+
+- Add explicit `--config PATH` JSON settings for input paths, strict mode, optional keys, allowance patterns and output format.
+- Resolve configured paths relative to the settings file, preserving working-directory-relative CLI overrides.
+- Replace configured lists when their CLI flags are supplied; add `--no-strict` for explicit policy overrides.
+- Reject unknown/duplicate fields, invalid types, non-standard JSON and malformed text without echoing file contents.
+- Keep JSON report schema 1 and existing CLI commands compatible; add root and standalone example configurations.
+
 ## 0.4.0 — 2026-10-26
 
 - Add repeatable `--allow-extra PATTERN` and Python API `allow_extra` for controlled extra-key allowances.

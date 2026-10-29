@@ -1,0 +1,8 @@
+{
+  "template": "../../.env.example",
+  "env": ["../allow-extra/development.env"],
+  "strict": true,
+  "optional": [],
+  "allow_extra": ["DEBUG", "TOOL_*"],
+  "format": "text"
+}

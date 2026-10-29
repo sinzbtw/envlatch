@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 from . import __version__
 from .core import InputError, Issue, Report, check
+from .config import Config, load_config
 
 
 def _summary(report: Report) -> str:
@@ -73,29 +74,45 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Check dotenv keys against a template without displaying values.",
     )
     parser.add_argument("--version", action="version", version=f"EnvLatch {__version__}")
-    parser.add_argument("--template", required=True, metavar="PATH", help="dotenv contract file")
-    parser.add_argument("--env", required=True, action="append", metavar="PATH",
+    parser.add_argument("--config", metavar="PATH", help="explicit JSON settings file")
+    parser.add_argument("--template", metavar="PATH", help="dotenv contract file")
+    parser.add_argument("--env", action="append", metavar="PATH",
                         help="dotenv file; repeat to overlay files in order (later keys win)")
-    parser.add_argument("--strict", action="store_true", help="treat extra keys as errors")
-    parser.add_argument("--optional", action="append", default=[], metavar="KEY",
+    strictness = parser.add_mutually_exclusive_group()
+    strictness.add_argument("--strict", dest="strict", action="store_true", default=None,
+                            help="treat extra keys as errors")
+    strictness.add_argument("--no-strict", dest="strict", action="store_false", default=None,
+                            help="treat extra keys as warnings, overriding config strict mode")
+    parser.add_argument("--optional", action="append", metavar="KEY",
                         help="template key allowed to be missing or blank; repeat for more keys")
-    parser.add_argument("--allow-extra", action="append", default=[], metavar="PATTERN",
+    parser.add_argument("--allow-extra", action="append", metavar="PATTERN",
                         help="allow extra keys matching a case-sensitive '*'/'?' pattern; repeat for more")
-    parser.add_argument("--format", choices=("text", "json", "github"), default="text",
-                        help="output format (default: text)")
+    parser.add_argument("--format", choices=("text", "json", "github"),
+                        help="output format (default: config setting or text)")
     arguments = parser.parse_args(argv)
+    output_format = arguments.format or "text"
+    template = arguments.template
+    environments = tuple(arguments.env) if arguments.env is not None else None
     try:
-        report = check(arguments.template, arguments.env, strict=arguments.strict,
-                       optional_keys=arguments.optional, allow_extra=arguments.allow_extra)
+        settings = load_config(arguments.config) if arguments.config is not None else Config()
+        output_format = arguments.format or settings.output_format
+        template = arguments.template if arguments.template is not None else settings.template
+        environments = tuple(arguments.env) if arguments.env is not None else settings.environments
+        if template is None or environments is None:
+            parser.error("provide --template and --env, directly or through --config")
+        strict = arguments.strict if arguments.strict is not None else settings.strict
+        optional = arguments.optional if arguments.optional is not None else settings.optional_keys
+        allowed = arguments.allow_extra if arguments.allow_extra is not None else settings.allow_extra
+        report = check(template, environments, strict=strict, optional_keys=optional, allow_extra=allowed)
     except InputError as error:
-        if arguments.format in ("json", "github"):
-            report = Report(arguments.template, tuple(arguments.env), 0,
+        if output_format in ("json", "github"):
+            report = Report(template or "", tuple(environments or ()), 0,
                             (Issue("error", "input_error", None, str(error)),))
             print(render_json(report, status="input_error")
-                  if arguments.format == "json" else render_github(report))
+                  if output_format == "json" else render_github(report))
         else:
             print(f"ERROR [input_error] {error}", file=sys.stderr)
         return 2
-    renderer = {"text": render_text, "json": render_json, "github": render_github}[arguments.format]
+    renderer = {"text": render_text, "json": render_json, "github": render_github}[output_format]
     print(renderer(report))
     return 0 if report.valid else 1

@@ -32,7 +32,7 @@ python -m unittest discover -s tests -v
 python -m pip check
 ```
 
-The parser and contract checks are in `src/envlatch/core.py`; output formats and CLI handling are in `src/envlatch/cli.py`; behavioral tests are in `tests/`. There are no runtime dependencies.
+The parser and contract checks are in `src/envlatch/core.py`; output formats and CLI handling are in `src/envlatch/cli.py`; JSON settings are loaded by `src/envlatch/config.py`; behavioral tests are in `tests/`. There are no runtime dependencies.
 
 ### Submit a change
 
@@ -74,7 +74,7 @@ python -m unittest discover -s tests -v
 python -m pip check
 ```
 
-Парсер и проверки контракта находятся в `src/envlatch/core.py`, обработка CLI и форматы вывода — в `src/envlatch/cli.py`, поведенческие тесты — в `tests/`. Зависимостей для запуска нет.
+Парсер и проверки контракта находятся в `src/envlatch/core.py`, обработка CLI и форматы вывода — в `src/envlatch/cli.py`, загрузка JSON-настроек — в `src/envlatch/config.py`, поведенческие тесты — в `tests/`. Зависимостей для запуска нет.
 
 ### Предложить изменение
 

@@ -28,5 +28,6 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python -m pip check
       - run: envlatch --template .env.example --env .env.example --strict --format github
+      - run: envlatch --config examples/config/envlatch.json --format json
       - run: envlatch --template .env.example --env examples/allow-extra/development.env --strict --allow-extra DEBUG --allow-extra 'TOOL_*' --format json
       - run: envlatch --template examples/optional/.env.example --env .env.example --optional SENTRY_DSN --optional LOG_LEVEL --strict --format json
