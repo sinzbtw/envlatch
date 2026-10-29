@@ -279,6 +279,10 @@ For a bug report, include your command, Python version, and a minimal example us
 
 GitHub Releases distribute tagged source archives only. Wheel builds are used for local installation checks and are not uploaded as release assets.
 
+## Community
+
+Contributions in English or Russian are welcome. See [Contributing](CONTRIBUTING.md), the [Code of Conduct](CODE_OF_CONDUCT.md), and the [Security Policy](SECURITY.md). Use the [issue forms](https://github.com/sinzbtw/envlatch/issues/new/choose) for ordinary bugs and feature requests; report suspected vulnerabilities privately through the security policy.
+
 ## License
 
 [MIT](LICENSE) © 2026 EnvLatch contributors.

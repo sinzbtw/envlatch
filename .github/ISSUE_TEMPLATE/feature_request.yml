@@ -1,0 +1,39 @@
+name: Feature request / Предложение
+description: Propose a useful improvement / Предложить полезное улучшение
+title: '[Feature]: '
+body:
+- type: markdown
+  attributes:
+    value: |-
+      English and Russian are welcome. Check existing issues and use invented values in examples.
+
+      Можно писать по-русски или по-английски. Проверьте существующие Issues и используйте вымышленные значения в примерах.
+- type: textarea
+  id: problem
+  attributes:
+    label: Problem to solve / Задача
+    description: Describe the real workflow and limitation / Опишите рабочий сценарий и ограничение
+  validations:
+    required: true
+- type: textarea
+  id: proposal
+  attributes:
+    label: Proposed behavior / Предлагаемое поведение
+    description: Describe the desired CLI or API behavior / Опишите нужное поведение CLI или API
+  validations:
+    required: true
+- type: textarea
+  id: example
+  attributes:
+    label: Example / Пример
+    description: Optional example command and expected output / Необязательный пример команды и ожидаемого
+      вывода
+  validations:
+    required: false
+- type: textarea
+  id: alternatives
+  attributes:
+    label: Alternatives / Альтернативы
+    description: What have you tried or considered? / Какие варианты уже пробовали или рассматривали?
+  validations:
+    required: false

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+- name: Private security report / Сообщить об уязвимости
+  url: https://github.com/sinzbtw/envlatch/security/advisories/new
+  about: Report suspected vulnerabilities privately / Сообщайте о возможных уязвимостях приватно
+- name: Documentation / Документация
+  url: https://github.com/sinzbtw/envlatch#readme
+  about: Installation, examples and language switcher / Установка, примеры и переключение языка

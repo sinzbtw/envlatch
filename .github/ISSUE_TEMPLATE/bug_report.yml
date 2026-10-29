@@ -1,0 +1,70 @@
+name: Bug report / Ошибка
+description: Report a reproducible problem / Сообщить о воспроизводимой ошибке
+title: '[Bug]: '
+body:
+- type: markdown
+  attributes:
+    value: |-
+      This is a public issue. Use invented values only; never upload real .env files, tokens, or private logs. Report vulnerabilities privately: https://github.com/sinzbtw/envlatch/security/advisories/new
+
+      Это открытый Issue. Используйте только вымышленные значения; не прикладывайте реальные .env, токены и приватные логи. Об уязвимостях сообщайте приватно по ссылке выше.
+- type: input
+  id: version
+  attributes:
+    label: EnvLatch version / Версия EnvLatch
+    description: Run envlatch --version / Выполните envlatch --version
+    placeholder: EnvLatch 0.4.0
+  validations:
+    required: true
+- type: input
+  id: runtime
+  attributes:
+    label: Python and operating system / Python и ОС
+    description: Include Python version and OS / Укажите версию Python и операционную систему
+    placeholder: Python 3.13, Windows 11
+  validations:
+    required: true
+- type: textarea
+  id: command
+  attributes:
+    label: Command / Команда
+    description: Exact command with sensitive paths or arguments replaced / Команда с заменёнными приватными
+      путями и аргументами
+    render: shell
+    placeholder: envlatch --template .env.example --env .env --strict
+  validations:
+    required: true
+- type: textarea
+  id: reproduction
+  attributes:
+    label: Minimal reproduction / Минимальный пример
+    description: Steps, template and environment contents with invented values only / Шаги, шаблон и окружение
+      только с вымышленными значениями
+    placeholder: |-
+      1. Create a template with TOKEN=
+      2. Create an empty environment file
+      3. Run the command above
+  validations:
+    required: true
+- type: textarea
+  id: expected
+  attributes:
+    label: Expected behavior / Ожидаемый результат
+    description: What should happen? / Что должно происходить?
+  validations:
+    required: true
+- type: textarea
+  id: actual
+  attributes:
+    label: Actual behavior / Фактический результат
+    description: Describe the result, exit code and sanitized output / Опишите результат, код завершения и
+      очищенный вывод
+  validations:
+    required: true
+- type: checkboxes
+  id: privacy
+  attributes:
+    label: Privacy check / Проверка приватности
+    options:
+    - label: I used invented values and removed secrets / Я использовал вымышленные значения и удалил секреты
+      required: true
