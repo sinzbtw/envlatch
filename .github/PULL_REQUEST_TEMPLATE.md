@@ -20,7 +20,7 @@
 
 ## Checklist / Чек-лист
 
-- [ ] I followed [Contributing](../CONTRIBUTING.md) and the [Code of Conduct](../CODE_OF_CONDUCT.md). / Я соблюдаю правила участия и общения.
+- [ ] I followed [Contributing](https://github.com/sinzbtw/envlatch/blob/main/CONTRIBUTING.md) and the [Code of Conduct](https://github.com/sinzbtw/envlatch/blob/main/CODE_OF_CONDUCT.md). / Я соблюдаю правила участия и общения.
 - [ ] Relevant tests pass, or I explained why runtime tests are not applicable. / Связанные тесты проходят либо объяснено, почему они неприменимы.
 - [ ] English/Russian README and changelog reflect behavior changes, if any. / Изменения поведения отражены в обеих README и changelog.
 - [ ] No real dotenv values, credentials, private logs, virtual environments, or build output are included. / Реальных значений dotenv, секретов, приватных логов, окружений и сборочных файлов нет.
