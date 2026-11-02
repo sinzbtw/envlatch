@@ -103,7 +103,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         strict = arguments.strict if arguments.strict is not None else settings.strict
         optional = arguments.optional if arguments.optional is not None else settings.optional_keys
         allowed = arguments.allow_extra if arguments.allow_extra is not None else settings.allow_extra
-        report = check(template, environments, strict=strict, optional_keys=optional, allow_extra=allowed)
+        report = check(template, environments, strict=strict, optional_keys=optional,
+                       allow_extra=allowed, types=settings.types)
     except InputError as error:
         if output_format in ("json", "github"):
             report = Report(template or "", tuple(environments or ()), 0,

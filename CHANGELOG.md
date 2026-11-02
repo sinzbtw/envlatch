@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — 2026-11-02
+
+- Add opt-in `types` rules in JSON configuration and the Python `check(..., types=...)` API: string, integer, boolean, URL (`url`) and port.
+- Check only effective, nonblank values after overlays; optional missing/blank keys keep their existing behavior, and template values remain illustrative.
+- Report `invalid_type` with the expected type and winning file/line, never dotenv values or raw validation exceptions; retain only key metadata and failed-key names after parsing.
+- Reject malformed rules as safe input errors (exit 2) and unknown template keys as `unknown_type_key` validation errors (exit 1).
+- Preserve v0.5.0 configurations, CLI behavior, parser metadata, exit codes and JSON report schema 1 when no types are configured; add no runtime dependencies.
+- Document exact type rules in English/Russian and add a runnable example, regression tests and a CI smoke check.
+
 ## 0.5.0 — 2026-10-29
 
 - Add explicit `--config PATH` JSON settings for input paths, strict mode, optional keys, allowance patterns and output format.

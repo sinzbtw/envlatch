@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path
 import re
+
+from ._types import TYPE_NAMES, matches_type
 
 _KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _EXPORT = re.compile(r"export[ \t]+")
@@ -77,17 +79,17 @@ def _closing_quote(value: str) -> int | None:
     return None
 
 
-def _value_is_empty(value: str) -> bool | None:
-    """Return blankness, or None for invalid or multiline quoted values."""
+def _literal_value(value: str) -> str | None:
+    """Extract a literal transient value; None means invalid quoted syntax."""
     value = value.strip()
     if not value or value.startswith("#"):
-        return True
+        return ''
     if value[0] not in ("'", '"'):
         for index, character in enumerate(value):
             if character == "#" and index and value[index - 1].isspace():
                 value = value[:index]
                 break
-        return not value.strip()
+        return value.strip()
 
     end = _closing_quote(value)
     if end is None:
@@ -95,7 +97,7 @@ def _value_is_empty(value: str) -> bool | None:
     tail = value[end + 1 :].strip()
     if tail and not tail.startswith("#"):
         return None
-    return not value[1:end].strip()
+    return value[1:end]
 
 
 def _read(path: Path) -> str:
@@ -109,8 +111,14 @@ def _read(path: Path) -> str:
 
 def parse(text: str, path: str) -> tuple[dict[str, Entry], list[Issue]]:
     """Parse a single-line dotenv dialect and discard all actual values."""
+    entries, issues, _ = _parse(text, path, {})
+    return entries, issues
+
+
+def _parse(text: str, path: str, types: Mapping[str, str]) -> tuple[dict[str, Entry], list[Issue], set[str]]:
     entries: dict[str, Entry] = {}
     issues: list[Issue] = []
+    invalid_types: set[str] = set()
     # Stop on malformed syntax so rejected multiline fragments cannot become keys.
     # Only LF/CRLF are physical line boundaries; Unicode in values stays literal.
     for line_number, raw in enumerate(text.removeprefix("\ufeff").split("\n"), 1):
@@ -132,8 +140,8 @@ def parse(text: str, path: str) -> tuple[dict[str, Entry], list[Issue]]:
             issues.append(Issue("error", "invalid_key", path,
                                 "Expected an ASCII environment variable name.", line_number))
             break
-        empty = _value_is_empty(value)
-        if empty is None:
+        literal = _literal_value(value)
+        if literal is None:
             issues.append(Issue("error", "invalid_value", path,
                                 "Expected a single-line value with balanced quotes and no trailing text.",
                                 line_number, key))
@@ -143,8 +151,25 @@ def parse(text: str, path: str) -> tuple[dict[str, Entry], list[Issue]]:
                                 f"Duplicate key '{key}'; first defined on line {entries[key].line}.",
                                 line_number, key))
             continue
+        empty = not literal.strip()
+        if not empty and key in types and not matches_type(literal, types[key]):
+            invalid_types.add(key)
         entries[key] = Entry(key, line_number, empty)
-    return entries, issues
+    return entries, issues, invalid_types
+
+
+def validate_types(types: Mapping[str, str] | None) -> dict[str, str]:
+    """Copy rules, rejecting malformed settings without echoing their contents."""
+    if types is None:
+        return {}
+    if not isinstance(types, Mapping):
+        raise InputError("Type rules must be an object mapping variable names to type names.")
+    rules = dict(types)
+    if any(not isinstance(key, str) or not _KEY.fullmatch(key) for key in rules):
+        raise InputError("Type rules must use ASCII environment variable names.")
+    if any(not isinstance(kind, str) or kind not in TYPE_NAMES for kind in rules.values()):
+        raise InputError("Type rules must use string, integer, boolean, url or port.")
+    return rules
 
 
 def check(
@@ -154,8 +179,10 @@ def check(
     strict: bool = False,
     optional_keys: Iterable[str] = (),
     allow_extra: Iterable[str] = (),
+    types: Mapping[str, str] | None = None,
 ) -> Report:
     """Validate a contract against files merged in order, with later keys winning."""
+    type_rules = validate_types(types)
     if isinstance(optional_keys, (str, bytes)):
         raise InputError("Optional keys must be a sequence of names, not a single string.")
     try:
@@ -186,14 +213,20 @@ def check(
     issues = list(template_issues)
     actual: dict[str, Entry] = {}
     sources: dict[str, str] = {}
+    invalid_types: set[str] = set()
     for environment_path in environment_paths:
-        entries, file_issues = parse(_read(environment_path), str(environment_path))
+        entries, file_issues, file_invalid_types = _parse(_read(environment_path), str(environment_path), type_rules)
         issues.extend(file_issues)
         actual.update(entries)
         sources.update((key, str(environment_path)) for key in entries)
+        invalid_types.difference_update(entries)
+        invalid_types.update(file_invalid_types)
 
     # A broken contract cannot reliably define required keys.
     if not template_issues:
+        for key in sorted(type_rules.keys() - expected.keys()):
+            issues.append(Issue("error", "unknown_type_key", str(template_path),
+                                f"Typed key '{key}' is absent from the template.", key=key))
         for key in sorted(optional - expected.keys()):
             issues.append(Issue("error", "unknown_optional_key", str(template_path),
                                 f"Optional key '{key}' is absent from the template.", key=key))
@@ -209,5 +242,10 @@ def check(
                 continue
             issues.append(Issue("error" if strict else "warning", "extra_key", sources[key],
                                 f"Key '{key}' is absent from the template.", actual[key].line, key))
+        for key in sorted(type_rules.keys() & expected.keys() & actual.keys()):
+            if key in invalid_types:
+                issues.append(Issue("error", "invalid_type", sources[key],
+                                    f"Key '{key}' must have type '{type_rules[key]}'.",
+                                    actual[key].line, key))
     return Report(str(template_path), tuple(str(path) for path in environment_paths),
                   len(expected.keys() - optional), tuple(issues))

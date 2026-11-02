@@ -17,9 +17,10 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 - Duplicate keys and malformed assignments produce errors with line numbers.
 - Reports include variable names and locations, never their values or source lines.
 - Save paths and validation policy in an explicit JSON project config, with CLI overrides.
+- Optionally check selected values as string, integer, boolean, URL or port using JSON `types` rules.
 - Deterministic text, JSON, and GitHub Actions reports use exit codes suitable for scripts and CI.
 
-EnvLatch reads files only. It does not load variables into your process, evaluate shell commands, expand references, or read values from the current process environment. It validates presence and nonblank values; it does not validate credentials, URL formats, or application-specific types.
+EnvLatch reads files only. It does not load variables into your process, evaluate shell commands, expand references, or read values from the current process environment. It validates presence, nonblank values and explicitly configured type syntax. It does not verify credentials, connect to URLs or check whether a port is available.
 
 ## Requirements
 
@@ -141,6 +142,7 @@ The committed [envlatch.json](envlatch.json) checks your local `.env` against `.
   "strict": true,
   "optional": ["PORT"],
   "allow_extra": ["CI_*"],
+  "types": {"DATABASE_URL": "url", "API_TOKEN": "string", "PORT": "port"},
   "format": "text"
 }
 ~~~
@@ -154,6 +156,7 @@ The second environment file in this example must exist; omit it if you do not us
 | `strict` | Boolean | `false` |
 | `optional` | Array of key names | `[]` |
 | `allow_extra` | Array of allowance patterns | `[]` |
+| `types` | Object mapping template key names to type names | `{}` (disabled) |
 | `format` | `text`, `json`, or `github` | `text` |
 
 Settings are loaded only when `--config` is supplied. UTF-8, BOM and CRLF are supported; use standard JSON without comments. Unknown fields, duplicate fields, invalid types, blank entries and invalid Unicode are rejected. Paths and strings are literal: shell commands, home shortcuts and environment references are not expanded or executed.
@@ -179,6 +182,50 @@ envlatch --config examples/config/envlatch.json --format json
 ~~~
 
 An unreadable or invalid configuration produces exit code `2` without echoing its contents. If the configuration cannot be loaded, output defaults to a text error on standard error; pass `--format json` or `--format github` explicitly to choose structured errors before loading. Missing required paths and invalid CLI arguments remain normal usage errors. JSON structure and types are checked even for fields overridden by CLI. The report's JSON schema remains version `1`.
+
+## Optional type checks
+
+Add `types` to your JSON configuration to check selected variables. Keys are case-sensitive; type names are lowercase `string`, `integer`, `boolean`, `url`, and `port`:
+
+~~~json
+{
+  "template": "template.env.example",
+  "env": ["development.env"],
+  "optional": ["METRICS_PORT"],
+  "types": {
+    "APP_NAME": "string",
+    "WORKERS": "integer",
+    "DEBUG": "boolean",
+    "DATABASE_URL": "url",
+    "PORT": "port",
+    "METRICS_PORT": "port"
+  }
+}
+~~~
+
+Try the complete [type-checking example](examples/types/envlatch.json), including its template and invented environment values:
+
+~~~sh
+envlatch --config examples/types/envlatch.json --format json
+~~~
+
+| Type | Accepted nonblank values |
+| --- | --- |
+| `string` | Any literal text accepted by the dotenv parser. No further restriction. |
+| `integer` | ASCII decimal digits with an optional leading `+` or `-`, e.g. `0`, `-42`, `+7`. Leading zeroes and arbitrarily large integers are allowed; decimals, exponents and underscores are rejected. |
+| `boolean` | `true` or `false` in any letter case, or exactly `1` or `0`. `yes`, `no`, `on` and `off` are rejected. |
+| `url` | An absolute network URL `scheme://host` with optional credentials, port, path, query and fragment. Schemes start with an ASCII letter and contain letters, digits, `+`, `-` or `.`; examples include `https`, `postgresql` and `redis`. Hosts can be DNS-style names (including localhost and IDNA international names), valid dotted IPv4 or bracketed IPv6. A supplied port must follow the `port` rule. Whitespace, control characters, backslashes, unsafe delimiters and malformed `%HH` escapes are rejected. Relative URLs, `mailto:` and hostless `file:` URLs are unsupported. |
+| `port` | ASCII decimal digits representing **1–65535**, inclusive. Leading zeroes are allowed; signs, zero and fractions are rejected. |
+
+- Type checking is opt-in. Omitting `types` or setting it to `{}` preserves v0.5.0 behavior; unlisted keys keep only the existing checks. There is no type inference or new CLI type flag.
+- Checks use literal dotenv values after removing surrounding quotes and unquoted comments. Unquoted outer whitespace is trimmed; whitespace inside quotes stays literal. Escapes, dollar references and shell commands are not decoded or expanded. Values are never converted into application settings.
+- A missing or blank required variable keeps its usual `missing_key` or `empty_value` error, without an additional type error. Optional keys may still be absent or blank; a nonblank optional value must match its configured type. Template values are not type-checked and are never defaults.
+- Only the final winning value after overlays is type-checked; errors point to that definition's file and line. Syntax and duplicate-key errors in every input file remain errors. Strict mode and extra-key allowances do not disable type checks.
+- A mismatch produces `invalid_type` and exit code `1` in all three output formats. Diagnostics contain only the key, expected type and source location. Parsed metadata and reports retain no values; URL credentials and raw validator exception messages are never printed. No network requests are made.
+- Typed names must exist in the template. An unknown name produces `unknown_type_key` and exit code `1`; extra-key allowances cannot declare it. Invalid rule structure, key syntax or unsupported type names produce a safe input error and exit code `2`. Duplicate JSON rules are rejected too.
+- CLI path overrides keep the configured type rules. Existing exit codes, required-key counts and JSON report schema `1` are unchanged.
+
+Python callers can use `check(template, environment, types={"PORT": "port", "DEBUG": "boolean"})`, together with existing `optional_keys`, `allow_extra` and `strict` arguments.
 
 ## Optional keys
 

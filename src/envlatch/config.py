@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
 
-from .core import InputError
+from .core import InputError, validate_types
 
-_FIELDS = frozenset(('template', 'env', 'strict', 'optional', 'allow_extra', 'format'))
+_FIELDS = frozenset(('template', 'env', 'strict', 'optional', 'allow_extra', 'format', 'types'))
 _FORMATS = ('text', 'json', 'github')
 
 
@@ -21,6 +21,7 @@ class Config:
     optional_keys: tuple[str, ...] = ()
     allow_extra: tuple[str, ...] = ()
     output_format: str = 'text'
+    types: dict[str, str] = field(default_factory=dict)
 
 
 class _InvalidJSON(ValueError):
@@ -75,7 +76,7 @@ def load_config(path: str | Path) -> Config:
     if not isinstance(data, dict):
         raise InputError('Configuration must be a JSON object.')
     if data.keys() - _FIELDS:
-        raise InputError('Unknown configuration option. Allowed options: template, env, strict, optional, allow_extra, format.')
+        raise InputError('Unknown configuration option. Allowed options: template, env, strict, optional, allow_extra, format, types.')
     if 'strict' in data and not isinstance(data['strict'], bool):
         raise InputError("Configuration field 'strict' requires a boolean.")
     if 'format' in data and data['format'] not in _FORMATS:
@@ -90,4 +91,8 @@ def load_config(path: str | Path) -> Config:
                              for value in _strings(data['env'], 'env', nonempty=True))
     optional = _strings(data['optional'], 'optional') if 'optional' in data else ()
     allowed = _strings(data['allow_extra'], 'allow_extra') if 'allow_extra' in data else ()
-    return Config(template, environments, data.get('strict', False), optional, allowed, data.get('format', 'text'))
+    if 'types' in data and not isinstance(data['types'], dict):
+        raise InputError("Configuration field 'types' requires an object mapping names to types.")
+    types = validate_types(data.get('types'))
+    return Config(template, environments, data.get('strict', False), optional, allowed,
+                  data.get('format', 'text'), types)

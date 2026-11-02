@@ -1,0 +1,14 @@
+{
+  "template": "template.env.example",
+  "env": ["development.env"],
+  "strict": true,
+  "optional": ["METRICS_PORT"],
+  "types": {
+    "APP_NAME": "string",
+    "WORKERS": "integer",
+    "DEBUG": "boolean",
+    "DATABASE_URL": "url",
+    "PORT": "port",
+    "METRICS_PORT": "port"
+  }
+}
