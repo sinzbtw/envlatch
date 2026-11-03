@@ -6,7 +6,10 @@ build/
 dist/
 *.egg-info/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+.ruff_cache/
 .pytest_cache/
 .env
 .env.*

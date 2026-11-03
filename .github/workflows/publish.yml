@@ -21,6 +21,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality:
+    name: Release quality checks
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/quality.yml
+
   build:
     name: Build and inspect wheel/sdist
     if: github.event_name != 'release' || !github.event.release.prerelease
@@ -47,7 +52,9 @@ jobs:
         env:
           RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           REQUIRE_RELEASE_TAG: ${{ github.event_name == 'release' || inputs.publish == true }}
-        run: python tools/check_distribution.py dist --tag "$RELEASE_TAG"
+        run: |
+          python tools/check_distribution.py dist --tag "$RELEASE_TAG"
+          python -c 'import pathlib, tomllib; print("version=" + tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])' >> "$GITHUB_OUTPUT"
       - name: Check PyPI long description and metadata
         run: python -m twine check --strict dist/*
       - name: Store exactly the validated distributions
@@ -91,7 +98,7 @@ jobs:
 
   publish:
     name: Publish to PyPI with Trusted Publishing
-    needs: [build, test]
+    needs: [build, test, quality]
     if: >-
       github.repository == 'sinzbtw/envlatch' &&
       vars.PYPI_PUBLISHING_ENABLED == 'true' &&

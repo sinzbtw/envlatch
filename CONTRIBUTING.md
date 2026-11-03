@@ -34,6 +34,44 @@ python -m pip check
 
 The parser and contract checks are in `src/envlatch/core.py`; literal type predicates are in `src/envlatch/_types.py`; output formats and CLI handling are in `src/envlatch/cli.py`; JSON settings are loaded by `src/envlatch/config.py`; behavioral tests are in `tests/`. There are no runtime dependencies.
 
+### Quality checks
+
+Development tools require Python **3.11+** (CI uses 3.13); EnvLatch and its ordinary tests still support Python 3.10. Install the pinned tools and check formatting/lint:
+
+```sh
+python -m pip install -r requirements/requirements-dev.txt
+python -m ruff check .
+python -m ruff format --check .
+```
+
+`python -m ruff format .` applies formatting locally. Before measuring coverage, set absolute paths so CLI processes running in temporary directories contribute to the same report:
+
+```powershell
+# Windows PowerShell
+$env:COVERAGE_FILE = "$PWD/.coverage"
+$env:COVERAGE_RCFILE = "$PWD/pyproject.toml"
+```
+
+```sh
+# Linux / macOS
+export COVERAGE_FILE="$PWD/.coverage"
+export COVERAGE_RCFILE="$PWD/pyproject.toml"
+```
+
+Then run:
+
+```sh
+python -m coverage erase
+python -m coverage run -m unittest discover -s tests -q
+python -m coverage combine
+python -m coverage report -m
+python -m coverage html
+```
+
+Quality checks require at least **98%** coverage, including branches and CLI subprocesses. CI provides a summary and a downloadable HTML/XML `coverage-report` artifact. The same checks gate PyPI uploads. Development tools are not runtime dependencies.
+
+Dependabot proposes weekly updates to Actions and development tools, grouping minor/patch releases. Major updates remain separate; a maintainer merges bot PRs after checks. GitHub-managed CodeQL scans Python/Actions on pushes, PRs and weekly.
+
 ### Submit a change
 
 - Keep the change focused and explain the problem and resulting behavior in the PR template. Link a related issue when one exists.
@@ -75,6 +113,14 @@ python -m pip check
 ```
 
 Парсер и проверки контракта находятся в `src/envlatch/core.py`, проверки буквальных типов — в `src/envlatch/_types.py`, обработка CLI и форматы вывода — в `src/envlatch/cli.py`, загрузка JSON-настроек — в `src/envlatch/config.py`, поведенческие тесты — в `tests/`. Зависимостей для запуска нет.
+
+### Проверки качества
+
+Для инструментов разработки нужен Python **3.11+** (в CI — 3.13); EnvLatch и обычные тесты сохраняют поддержку Python 3.10. Установите инструменты из `requirements/requirements-dev.txt`, затем запустите `python -m ruff check .` и `python -m ruff format --check .`. Применить оформление можно командой `python -m ruff format .`.
+
+Команды измерения покрытия и настройки путей для PowerShell/Linux приведены в [Quality checks](#quality-checks). Покрытие учитывает ветвления и отдельные процессы CLI; порог — **98%**. В CI доступны сводка и архив `coverage-report` с HTML/XML. Те же проверки выполняются перед загрузкой в PyPI. Инструменты разработки не становятся зависимостями пакета для пользователей.
+
+Dependabot раз в неделю предлагает обновления Actions и инструментов разработки, объединяя небольшие обновления. Major-обновления предлагаются отдельно; PR бота сливает сопровождающий после проверок. CodeQL проверяет Python и GitHub Actions при push/PR и еженедельно через стандартную настройку GitHub.
 
 ### Предложить изменение
 

@@ -28,7 +28,7 @@ No PyPI password or API token belongs in GitHub Secrets, `.pypirc`, the reposito
 1. Update `pyproject.toml`, `src/envlatch/__init__.py` and CHANGELOG for a new stable version; commit and push to `main`.
 2. Publish a non-prerelease GitHub Release using a matching tag, for example `v0.6.1`. The `release: published` event starts `.github/workflows/publish.yml`. Merely pushing to `main`, pushing a tag, editing an existing release, or creating a draft does **not** publish to PyPI.
 3. The workflow builds the sdist, builds a wheel from that sdist, checks metadata and the archive allowlist, and runs `twine check --strict`. It then installs each artifact into its own fresh environment outside the checkout and runs the full tests on Linux/Python 3.10 and 3.13 and Windows/Python 3.13. A failure prevents upload.
-4. A separate job downloads exactly those validated artifacts and publishes them with the PyPA action through Trusted Publishing. No checkout/build commands execute in that job. Another job verifies installation of that exact version from PyPI, allowing a short index-propagation delay.
+4. Ruff lint/format checks and the branch-coverage threshold must also pass through the reusable Quality workflow. A separate job downloads exactly the validated artifacts and publishes them with the PyPA action through Trusted Publishing. No checkout/build commands execute in that job. Another job verifies installation of that exact version from PyPI, allowing a short index-propagation delay.
 
 Both archives are uploaded to **PyPI**, not GitHub Release assets. GitHub Releases continue to contain only their automatic source archives. PRs and pushes run packaging checks without publishing or OIDC permissions. Third-party Actions are pinned to commit SHAs.
 
@@ -63,6 +63,8 @@ References: [PyPI pending publishers](https://docs.pypi.org/trusted-publishers/c
 Постоянные API-токены не используются. Пароли и токены не добавляются в GitHub Secrets, `.pypirc` или проект. Только отдельное задание публикации получает `id-token: write` и обменивает удостоверение GitHub на краткоживущие права PyPI. Также публикуются подтверждения происхождения PEP 740.
 
 ### Как выпускать версии
+
+Перед загрузкой в PyPI также должны пройти Ruff, проверка оформления и порог покрытия из повторно используемого workflow Quality.
 
 Обновите версии в `pyproject.toml` и `src/envlatch/__init__.py`, дополните CHANGELOG и отправьте изменения в `main`. Опубликуйте обычный GitHub Release с соответствующим тегом, например `v0.6.1`. Это запустит сборку wheel/sdist, проверку метаданных и состава архивов, установку обоих пакетов в отдельные окружения и все тесты в Linux/Python 3.10 и 3.13 и Windows/Python 3.13. Ошибка на любом этапе блокирует загрузку. После успешной загрузки отдельно проверяется установка точной версии из PyPI.
 

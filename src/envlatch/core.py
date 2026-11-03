@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path
-import re
 
 from ._types import TYPE_NAMES, matches_type
 
@@ -83,7 +83,7 @@ def _literal_value(value: str) -> str | None:
     """Extract a literal transient value; None means invalid quoted syntax."""
     value = value.strip()
     if not value or value.startswith("#"):
-        return ''
+        return ""
     if value[0] not in ("'", '"'):
         for index, character in enumerate(value):
             if character == "#" and index and value[index - 1].isspace():
@@ -115,7 +115,9 @@ def parse(text: str, path: str) -> tuple[dict[str, Entry], list[Issue]]:
     return entries, issues
 
 
-def _parse(text: str, path: str, types: Mapping[str, str]) -> tuple[dict[str, Entry], list[Issue], set[str]]:
+def _parse(
+    text: str, path: str, types: Mapping[str, str]
+) -> tuple[dict[str, Entry], list[Issue], set[str]]:
     entries: dict[str, Entry] = {}
     issues: list[Issue] = []
     invalid_types: set[str] = set()
@@ -126,30 +128,59 @@ def _parse(text: str, path: str, types: Mapping[str, str]) -> tuple[dict[str, En
         if not line or line.startswith("#"):
             continue
         if "\x00" in line:
-            issues.append(Issue("error", "invalid_syntax", path,
-                                "NUL characters are not supported.", line_number))
+            issues.append(
+                Issue(
+                    "error",
+                    "invalid_syntax",
+                    path,
+                    "NUL characters are not supported.",
+                    line_number,
+                )
+            )
             break
         line = _EXPORT.sub("", line, count=1)
         if "=" not in line:
-            issues.append(Issue("error", "invalid_syntax", path,
-                                "Expected KEY=VALUE.", line_number))
+            issues.append(
+                Issue("error", "invalid_syntax", path, "Expected KEY=VALUE.", line_number)
+            )
             break
         key, value = line.split("=", 1)
         key = key.strip()
         if not _KEY.fullmatch(key):
-            issues.append(Issue("error", "invalid_key", path,
-                                "Expected an ASCII environment variable name.", line_number))
+            issues.append(
+                Issue(
+                    "error",
+                    "invalid_key",
+                    path,
+                    "Expected an ASCII environment variable name.",
+                    line_number,
+                )
+            )
             break
         literal = _literal_value(value)
         if literal is None:
-            issues.append(Issue("error", "invalid_value", path,
-                                "Expected a single-line value with balanced quotes and no trailing text.",
-                                line_number, key))
+            issues.append(
+                Issue(
+                    "error",
+                    "invalid_value",
+                    path,
+                    "Expected a single-line value with balanced quotes and no trailing text.",
+                    line_number,
+                    key,
+                )
+            )
             break
         if key in entries:
-            issues.append(Issue("error", "duplicate_key", path,
-                                f"Duplicate key '{key}'; first defined on line {entries[key].line}.",
-                                line_number, key))
+            issues.append(
+                Issue(
+                    "error",
+                    "duplicate_key",
+                    path,
+                    f"Duplicate key '{key}'; first defined on line {entries[key].line}.",
+                    line_number,
+                    key,
+                )
+            )
             continue
         empty = not literal.strip()
         if not empty and key in types and not matches_type(literal, types[key]):
@@ -193,14 +224,20 @@ def check(
         raise InputError("Optional keys must use ASCII environment variable names.")
     optional = frozenset(optional_names)
     if isinstance(allow_extra, (str, bytes)):
-        raise InputError("Allow-extra patterns must be an iterable of patterns, not a single string.")
+        raise InputError(
+            "Allow-extra patterns must be an iterable of patterns, not a single string."
+        )
     try:
         extra_patterns = tuple(allow_extra)
     except TypeError:
         raise InputError("Allow-extra patterns must be an iterable of patterns.") from None
-    if any(not isinstance(pattern, str) or not _EXTRA_PATTERN.fullmatch(pattern)
-           for pattern in extra_patterns):
-        raise InputError("Allow-extra patterns must contain only ASCII letters, digits, underscores, '*' or '?'.")
+    if any(
+        not isinstance(pattern, str) or not _EXTRA_PATTERN.fullmatch(pattern)
+        for pattern in extra_patterns
+    ):
+        raise InputError(
+            "Allow-extra patterns must contain only ASCII letters, digits, underscores, '*' or '?'."
+        )
     template_path = Path(template)
     if isinstance(environment, (str, Path)):
         environment_paths = (Path(environment),)
@@ -215,7 +252,9 @@ def check(
     sources: dict[str, str] = {}
     invalid_types: set[str] = set()
     for environment_path in environment_paths:
-        entries, file_issues, file_invalid_types = _parse(_read(environment_path), str(environment_path), type_rules)
+        entries, file_issues, file_invalid_types = _parse(
+            _read(environment_path), str(environment_path), type_rules
+        )
         issues.extend(file_issues)
         actual.update(entries)
         sources.update((key, str(environment_path)) for key in entries)
@@ -225,27 +264,75 @@ def check(
     # A broken contract cannot reliably define required keys.
     if not template_issues:
         for key in sorted(type_rules.keys() - expected.keys()):
-            issues.append(Issue("error", "unknown_type_key", str(template_path),
-                                f"Typed key '{key}' is absent from the template.", key=key))
+            issues.append(
+                Issue(
+                    "error",
+                    "unknown_type_key",
+                    str(template_path),
+                    f"Typed key '{key}' is absent from the template.",
+                    key=key,
+                )
+            )
         for key in sorted(optional - expected.keys()):
-            issues.append(Issue("error", "unknown_optional_key", str(template_path),
-                                f"Optional key '{key}' is absent from the template.", key=key))
+            issues.append(
+                Issue(
+                    "error",
+                    "unknown_optional_key",
+                    str(template_path),
+                    f"Optional key '{key}' is absent from the template.",
+                    key=key,
+                )
+            )
         for key in sorted(expected.keys() - optional):
             if key not in actual:
-                issues.append(Issue("error", "missing_key", str(environment_paths[-1]),
-                                    f"Required key '{key}' is missing.", key=key))
+                issues.append(
+                    Issue(
+                        "error",
+                        "missing_key",
+                        str(environment_paths[-1]),
+                        f"Required key '{key}' is missing.",
+                        key=key,
+                    )
+                )
             elif actual[key].empty:
-                issues.append(Issue("error", "empty_value", sources[key],
-                                    f"Required key '{key}' is blank.", actual[key].line, key))
+                issues.append(
+                    Issue(
+                        "error",
+                        "empty_value",
+                        sources[key],
+                        f"Required key '{key}' is blank.",
+                        actual[key].line,
+                        key,
+                    )
+                )
         for key in sorted(actual.keys() - expected.keys()):
             if any(fnmatchcase(key, pattern) for pattern in extra_patterns):
                 continue
-            issues.append(Issue("error" if strict else "warning", "extra_key", sources[key],
-                                f"Key '{key}' is absent from the template.", actual[key].line, key))
+            issues.append(
+                Issue(
+                    "error" if strict else "warning",
+                    "extra_key",
+                    sources[key],
+                    f"Key '{key}' is absent from the template.",
+                    actual[key].line,
+                    key,
+                )
+            )
         for key in sorted(type_rules.keys() & expected.keys() & actual.keys()):
             if key in invalid_types:
-                issues.append(Issue("error", "invalid_type", sources[key],
-                                    f"Key '{key}' must have type '{type_rules[key]}'.",
-                                    actual[key].line, key))
-    return Report(str(template_path), tuple(str(path) for path in environment_paths),
-                  len(expected.keys() - optional), tuple(issues))
+                issues.append(
+                    Issue(
+                        "error",
+                        "invalid_type",
+                        sources[key],
+                        f"Key '{key}' must have type '{type_rules[key]}'.",
+                        actual[key].line,
+                        key,
+                    )
+                )
+    return Report(
+        str(template_path),
+        tuple(str(path) for path in environment_paths),
+        len(expected.keys() - optional),
+        tuple(issues),
+    )

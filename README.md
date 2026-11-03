@@ -5,6 +5,8 @@
 **Catch missing environment variables before your application starts.**
 
 [![Tests](https://github.com/sinzbtw/envlatch/actions/workflows/ci.yml/badge.svg)](https://github.com/sinzbtw/envlatch/actions/workflows/ci.yml)
+[![Quality](https://github.com/sinzbtw/envlatch/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/sinzbtw/envlatch/actions/workflows/quality.yml)
+[![PyPI](https://img.shields.io/pypi/v/envlatch)](https://pypi.org/project/envlatch/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/sinzbtw/envlatch/blob/main/LICENSE)
 
@@ -32,7 +34,7 @@ There are no runtime dependencies. Installation uses pip and setuptools as build
 
 ## Install from PyPI
 
-Once the first PyPI release is published, install EnvLatch in your virtual environment:
+Install EnvLatch in your virtual environment:
 
 ~~~sh
 python -m pip install envlatch
@@ -96,6 +98,12 @@ Validate it:
 
 ~~~sh
 envlatch --template .env.example --env .env
+~~~
+
+With the example values, the result is:
+
+~~~text
+PASS: 3 required key(s), 0 error(s), 0 warning(s). Values are never displayed.
 ~~~
 
 The module entry point works too:
@@ -389,6 +397,8 @@ python -m unittest discover -s tests -v
 ~~~
 
 The package lives in `src/envlatch/`; tests live in `tests/`. The runtime uses only the Python standard library. GitHub Actions runs the test suite on Linux with Python 3.10 and 3.13, and on Windows with Python 3.13.
+
+The [Quality workflow](https://github.com/sinzbtw/envlatch/actions/workflows/quality.yml) checks Ruff linting/formatting and enforces at least 98% coverage, including branches and CLI subprocesses. Each run provides a coverage summary and a downloadable `coverage-report` artifact with HTML/XML reports. CodeQL scans Python and GitHub Actions; Dependabot proposes weekly updates to Actions and development tools. Local commands are in [Contributing](https://github.com/sinzbtw/envlatch/blob/main/CONTRIBUTING.md#quality-checks).
 
 For a bug report, include your command, Python version, and a minimal example using invented values. Keep both README language versions in sync when changing behavior.
 

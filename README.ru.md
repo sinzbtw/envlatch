@@ -5,6 +5,8 @@
 **Находите пропущенные переменные окружения до запуска приложения.**
 
 [![Tests](https://github.com/sinzbtw/envlatch/actions/workflows/ci.yml/badge.svg)](https://github.com/sinzbtw/envlatch/actions/workflows/ci.yml)
+[![Quality](https://github.com/sinzbtw/envlatch/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/sinzbtw/envlatch/actions/workflows/quality.yml)
+[![PyPI](https://img.shields.io/pypi/v/envlatch)](https://pypi.org/project/envlatch/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -32,7 +34,7 @@ EnvLatch только читает файлы. Он не загружает пе
 
 ## Установка из PyPI
 
-После публикации первого выпуска в PyPI установите EnvLatch в виртуальном окружении:
+Установите EnvLatch в виртуальном окружении:
 
 ~~~sh
 python -m pip install envlatch
@@ -96,6 +98,12 @@ cp .env.example .env
 
 ~~~sh
 envlatch --template .env.example --env .env
+~~~
+
+Для значений из примера результат будет таким:
+
+~~~text
+PASS: 3 required key(s), 0 error(s), 0 warning(s). Values are never displayed.
 ~~~
 
 Также можно запустить инструмент как модуль:
@@ -389,6 +397,8 @@ python -m unittest discover -s tests -v
 ~~~
 
 Пакет находится в `src/envlatch/`, тесты — в `tests/`. Для работы используется только стандартная библиотека Python. GitHub Actions запускает тесты в Linux с Python 3.10 и 3.13 и в Windows с Python 3.13.
+
+[Workflow Quality](https://github.com/sinzbtw/envlatch/actions/workflows/quality.yml) проверяет код и оформление через Ruff и требует покрытие не ниже 98%, включая ветвления и отдельные процессы CLI. В каждом запуске доступны сводка покрытия и архив `coverage-report` с отчётами HTML/XML. CodeQL проверяет Python и GitHub Actions; Dependabot раз в неделю предлагает обновления Actions и инструментов разработки. Локальные команды приведены в [инструкции для участников](CONTRIBUTING.md#проверки-качества).
 
 При сообщении об ошибке приложите команду, версию Python и минимальный пример с вымышленными значениями. При изменении поведения обновляйте обе языковые версии README.
 

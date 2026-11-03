@@ -7,6 +7,7 @@ include examples/optional/.env.example
 include examples/types/template.env.example
 include examples/types/development.env examples/types/envlatch.json
 include tools/check_distribution.py
+include requirements/requirements-dev.txt
 recursive-include src/envlatch *.py
 recursive-include tests test_*.py
 global-exclude *.py[cod]

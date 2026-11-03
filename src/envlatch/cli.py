@@ -3,20 +3,22 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import json
 import sys
 from collections.abc import Sequence
+from dataclasses import asdict
 
 from . import __version__
-from .core import InputError, Issue, Report, check
 from .config import Config, load_config
+from .core import InputError, Issue, Report, check
 
 
 def _summary(report: Report) -> str:
     status = "PASS" if report.valid else "FAIL"
-    return (f"{status}: {report.checked_keys} required key(s), "
-            f"{report.errors} error(s), {report.warnings} warning(s). Values are never displayed.")
+    return (
+        f"{status}: {report.checked_keys} required key(s), "
+        f"{report.errors} error(s), {report.warnings} warning(s). Values are never displayed."
+    )
 
 
 def render_text(report: Report) -> str:
@@ -76,19 +78,44 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=f"EnvLatch {__version__}")
     parser.add_argument("--config", metavar="PATH", help="explicit JSON settings file")
     parser.add_argument("--template", metavar="PATH", help="dotenv contract file")
-    parser.add_argument("--env", action="append", metavar="PATH",
-                        help="dotenv file; repeat to overlay files in order (later keys win)")
+    parser.add_argument(
+        "--env",
+        action="append",
+        metavar="PATH",
+        help="dotenv file; repeat to overlay files in order (later keys win)",
+    )
     strictness = parser.add_mutually_exclusive_group()
-    strictness.add_argument("--strict", dest="strict", action="store_true", default=None,
-                            help="treat extra keys as errors")
-    strictness.add_argument("--no-strict", dest="strict", action="store_false", default=None,
-                            help="treat extra keys as warnings, overriding config strict mode")
-    parser.add_argument("--optional", action="append", metavar="KEY",
-                        help="template key allowed to be missing or blank; repeat for more keys")
-    parser.add_argument("--allow-extra", action="append", metavar="PATTERN",
-                        help="allow extra keys matching a case-sensitive '*'/'?' pattern; repeat for more")
-    parser.add_argument("--format", choices=("text", "json", "github"),
-                        help="output format (default: config setting or text)")
+    strictness.add_argument(
+        "--strict",
+        dest="strict",
+        action="store_true",
+        default=None,
+        help="treat extra keys as errors",
+    )
+    strictness.add_argument(
+        "--no-strict",
+        dest="strict",
+        action="store_false",
+        default=None,
+        help="treat extra keys as warnings, overriding config strict mode",
+    )
+    parser.add_argument(
+        "--optional",
+        action="append",
+        metavar="KEY",
+        help="template key allowed to be missing or blank; repeat for more keys",
+    )
+    parser.add_argument(
+        "--allow-extra",
+        action="append",
+        metavar="PATTERN",
+        help="allow extra keys matching a case-sensitive '*'/'?' pattern; repeat for more",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("text", "json", "github"),
+        help="output format (default: config setting or text)",
+    )
     arguments = parser.parse_args(argv)
     output_format = arguments.format or "text"
     template = arguments.template
@@ -102,15 +129,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("provide --template and --env, directly or through --config")
         strict = arguments.strict if arguments.strict is not None else settings.strict
         optional = arguments.optional if arguments.optional is not None else settings.optional_keys
-        allowed = arguments.allow_extra if arguments.allow_extra is not None else settings.allow_extra
-        report = check(template, environments, strict=strict, optional_keys=optional,
-                       allow_extra=allowed, types=settings.types)
+        allowed = (
+            arguments.allow_extra if arguments.allow_extra is not None else settings.allow_extra
+        )
+        report = check(
+            template,
+            environments,
+            strict=strict,
+            optional_keys=optional,
+            allow_extra=allowed,
+            types=settings.types,
+        )
     except InputError as error:
         if output_format in ("json", "github"):
-            report = Report(template or "", tuple(environments or ()), 0,
-                            (Issue("error", "input_error", None, str(error)),))
-            print(render_json(report, status="input_error")
-                  if output_format == "json" else render_github(report))
+            report = Report(
+                template or "",
+                tuple(environments or ()),
+                0,
+                (Issue("error", "input_error", None, str(error)),),
+            )
+            print(
+                render_json(report, status="input_error")
+                if output_format == "json"
+                else render_github(report)
+            )
         else:
             print(f"ERROR [input_error] {error}", file=sys.stderr)
         return 2

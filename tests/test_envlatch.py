@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
-from envlatch.core import InputError, check, parse
 from envlatch import __version__
 from envlatch.cli import render_text
+from envlatch.core import InputError, check, parse
 
 
 class ParserTests(unittest.TestCase):
     def test_supported_dotenv_syntax(self):
-        text = '\ufeff# contract\r\n export FIRST = one # comment\r\nSECOND="two # literal"\r\nTHIRD=\'three\'\r\nFOURTH=some#literal\r\nDOLLAR=${LITERAL}\r\n'
+        text = "\ufeff# contract\r\n export FIRST = one # comment\r\nSECOND=\"two # literal\"\r\nTHIRD='three'\r\nFOURTH=some#literal\r\nDOLLAR=${LITERAL}\r\n"
         entries, issues = parse(text, "example.env")
         self.assertEqual(issues, [])
         self.assertEqual(list(entries), ["FIRST", "SECOND", "THIRD", "FOURTH", "DOLLAR"])
@@ -62,7 +62,13 @@ class ParserTests(unittest.TestCase):
         self.assertNotIn("secret", repr(issues))
 
     def test_invalid_lines_never_echo_source(self):
-        cases = ["private-secret", "private-secret-x=value", "KEY='private-secret", 'KEY="private-secret"tail', "KEY=private-secret\x00"]
+        cases = [
+            "private-secret",
+            "private-secret-x=value",
+            "KEY='private-secret",
+            'KEY="private-secret"tail',
+            "KEY=private-secret\x00",
+        ]
         for text in cases:
             with self.subTest(text=text):
                 _, issues = parse(text, "input")
@@ -129,8 +135,10 @@ class ContractTests(unittest.TestCase):
     def test_missing_and_empty_keys(self):
         report = self.validate("Z=\nA=\nB=", "B= \nZ=ok")
         self.assertFalse(report.valid)
-        self.assertEqual([(issue.code, issue.key, issue.line) for issue in report.issues],
-                         [("missing_key", "A", None), ("empty_value", "B", 1)])
+        self.assertEqual(
+            [(issue.code, issue.key, issue.line) for issue in report.issues],
+            [("missing_key", "A", None), ("empty_value", "B", 1)],
+        )
 
     def test_extras_warn_by_default_and_fail_when_strict(self):
         report = self.validate("A=", "A=ok\nEXTRA=secret")
@@ -210,7 +218,9 @@ class OverlayTests(unittest.TestCase):
         self.assertNotIn("secret", repr(report))
         reverse = check(self.template, [local, base])
         self.assertFalse(reverse.valid)
-        self.assertEqual((reverse.issues[0].code, reverse.issues[0].path), ("empty_value", str(base)))
+        self.assertEqual(
+            (reverse.issues[0].code, reverse.issues[0].path), ("empty_value", str(base))
+        )
 
     def test_blank_override_is_not_a_fallback(self):
         base = self.write("base.env", "A=base\nB=base")
@@ -218,24 +228,29 @@ class OverlayTests(unittest.TestCase):
         report = check(self.template, [base, local])
         self.assertEqual(len(report.issues), 1)
         issue = report.issues[0]
-        self.assertEqual((issue.code, issue.key, issue.path, issue.line),
-                         ("empty_value", "A", str(local), 2))
+        self.assertEqual(
+            (issue.code, issue.key, issue.path, issue.line), ("empty_value", "A", str(local), 2)
+        )
 
     def test_shadowed_duplicates_and_syntax_still_fail(self):
         base = self.write("base.env", "A=first\nA=duplicate\ninvalid-private-canary")
         local = self.write("local.env", "A=good\nB=good")
         report = check(self.template, [base, local])
         self.assertFalse(report.valid)
-        self.assertEqual([(issue.code, issue.path, issue.line) for issue in report.issues],
-                         [("duplicate_key", str(base), 2), ("invalid_syntax", str(base), 3)])
+        self.assertEqual(
+            [(issue.code, issue.path, issue.line) for issue in report.issues],
+            [("duplicate_key", str(base), 2), ("invalid_syntax", str(base), 3)],
+        )
         self.assertNotIn("invalid-private-canary", repr(report))
 
     def test_syntax_error_stops_only_its_file_and_later_files_are_checked(self):
         base = self.write("base.env", 'BAD-KEY="bad\nPRIVATE_CANARY=secret\n"')
         local = self.write("local.env", "A=good\nA=duplicate\nB=good")
         report = check(self.template, [base, local])
-        self.assertEqual([(issue.code, issue.path) for issue in report.issues],
-                         [("invalid_key", str(base)), ("duplicate_key", str(local))])
+        self.assertEqual(
+            [(issue.code, issue.path) for issue in report.issues],
+            [("invalid_key", str(base)), ("duplicate_key", str(local))],
+        )
         self.assertNotIn("PRIVATE_CANARY", render_text(report))
         self.assertEqual(report.errors, 2)
 
@@ -245,12 +260,15 @@ class OverlayTests(unittest.TestCase):
         local = self.write("local.env", "# local\nB=\nEXTRA=two")
         report = check(self.template, [base, local], strict=True)
         observed = {issue.key: (issue.code, issue.path, issue.line) for issue in report.issues}
-        self.assertEqual(observed, {
-            "A": ("empty_value", str(base), 2),
-            "B": ("empty_value", str(local), 2),
-            "MISSING": ("missing_key", str(local), None),
-            "EXTRA": ("extra_key", str(local), 3),
-        })
+        self.assertEqual(
+            observed,
+            {
+                "A": ("empty_value", str(base), 2),
+                "B": ("empty_value", str(local), 2),
+                "MISSING": ("missing_key", str(local), None),
+                "EXTRA": ("extra_key", str(local), 3),
+            },
+        )
 
     def test_missing_intermediate_file_cannot_be_skipped(self):
         base = self.write("base.env", "A=good\nB=good")
@@ -282,8 +300,12 @@ class CliTests(unittest.TestCase):
         self.environment.write_text("TOKEN=unique-private-canary", encoding="utf-8")
 
     def run_cli(self, *arguments):
-        return subprocess.run([sys.executable, "-m", "envlatch", *arguments],
-                              capture_output=True, text=True, check=False)
+        return subprocess.run(
+            [sys.executable, "-m", "envlatch", *arguments],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
     def args(self):
         return ["--template", str(self.template), "--env", str(self.environment)]
@@ -327,8 +349,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(document["schema_version"], 1)
         self.assertEqual(document["template"], str(self.template))
         self.assertEqual(document["environments"], [str(self.environment)])
-        self.assertEqual(set(document), {"schema_version", "status", "template", "environments",
-                                         "checked_keys", "errors", "warnings", "issues"})
+        self.assertEqual(
+            set(document),
+            {
+                "schema_version",
+                "status",
+                "template",
+                "environments",
+                "checked_keys",
+                "errors",
+                "warnings",
+                "issues",
+            },
+        )
         self.assertNotIn("unique-private-canary", result.stdout)
         return result, document
 
@@ -345,10 +378,14 @@ class CliTests(unittest.TestCase):
         self.environment.write_text("OTHER=unique-private-canary", encoding="utf-8")
         result, document = self.json_result()
         self.assertEqual(result.returncode, 1)
-        self.assertEqual((document["status"], document["errors"], document["warnings"]), ("fail", 1, 1))
+        self.assertEqual(
+            (document["status"], document["errors"], document["warnings"]), ("fail", 1, 1)
+        )
         issue = document["issues"][0]
         self.assertEqual(set(issue), {"severity", "code", "path", "message", "line", "key"})
-        self.assertEqual((issue["code"], issue["key"], issue["line"]), ("missing_key", "TOKEN", None))
+        self.assertEqual(
+            (issue["code"], issue["key"], issue["line"]), ("missing_key", "TOKEN", None)
+        )
 
     def test_json_warning_and_strict(self):
         self.environment.write_text("TOKEN=ok\nEXTRA=unique-private-canary", encoding="utf-8")
@@ -357,7 +394,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual((document["status"], document["warnings"]), ("pass", 1))
         result, document = self.json_result("--strict")
         self.assertEqual(result.returncode, 1)
-        self.assertEqual((document["status"], document["errors"], document["warnings"]), ("fail", 1, 0))
+        self.assertEqual(
+            (document["status"], document["errors"], document["warnings"]), ("fail", 1, 0)
+        )
 
     def test_json_input_errors_have_same_schema(self):
         for invalid_utf8 in (False, True):
@@ -368,8 +407,15 @@ class CliTests(unittest.TestCase):
                     self.environment.unlink()
                 result, document = self.json_result()
                 self.assertEqual(result.returncode, 2)
-                self.assertEqual((document["status"], document["checked_keys"], document["errors"],
-                                  document["warnings"]), ("input_error", 0, 1, 0))
+                self.assertEqual(
+                    (
+                        document["status"],
+                        document["checked_keys"],
+                        document["errors"],
+                        document["warnings"],
+                    ),
+                    ("input_error", 0, 1, 0),
+                )
                 issue = document["issues"][0]
                 self.assertEqual((issue["severity"], issue["code"]), ("error", "input_error"))
                 self.assertIsNone(issue["path"])
@@ -393,15 +439,17 @@ class CliTests(unittest.TestCase):
         result = self.run_cli(*self.args(), "--env", str(overlay), "--format", "json")
         document = json.loads(result.stdout)
         self.assertEqual(result.returncode, 1)
-        self.assertEqual((document["issues"][0]["path"], document["issues"][0]["line"]),
-                         (str(overlay), 2))
+        self.assertEqual(
+            (document["issues"][0]["path"], document["issues"][0]["line"]), (str(overlay), 2)
+        )
 
     def test_json_missing_overlay_preserves_all_requested_paths(self):
         missing = Path(self.directory.name) / "missing.env"
         last = Path(self.directory.name) / "last.env"
         last.write_text("TOKEN=unique-private-canary", encoding="utf-8")
-        result = self.run_cli(*self.args(), "--env", str(missing), "--env", str(last),
-                              "--format", "json")
+        result = self.run_cli(
+            *self.args(), "--env", str(missing), "--env", str(last), "--format", "json"
+        )
         document = json.loads(result.stdout)
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stderr, "")
