@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 — 2026-11-03
+
+- Add `envlatch compare` and the Python `compare()` API for independent named environments such as dev, staging and production, with ordered overlays inside each environment.
+- Reuse existing contract validation and type rules; report missing/blank variables, inferred type drift and explicitly selected setting differences with safe source locations.
+- Compare selected settings using fresh, per-call keyed fingerprints; retain no values or fingerprints in reports. Values are never printed, and unselected secrets are not compared for equality.
+- Add explicit comparison JSON configuration with named file arrays, shared validation policy and `compare_values`; preserve legacy CLI/config behavior and the existing validation JSON schema.
+- Provide text, comparison-specific JSON and escaped GitHub Actions output, matching English/Russian documentation, runnable examples and regression coverage.
+
 ## 0.6.1 — 2026-11-03
 
 - Prepare PyPI metadata with an SPDX MIT license, explicit Markdown description, project links and Python classifiers; retain zero runtime dependencies.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -116,7 +116,10 @@ def parse(text: str, path: str) -> tuple[dict[str, Entry], list[Issue]]:
 
 
 def _parse(
-    text: str, path: str, types: Mapping[str, str]
+    text: str,
+    path: str,
+    types: Mapping[str, str],
+    observe: Callable[[str, str], None] | None = None,
 ) -> tuple[dict[str, Entry], list[Issue], set[str]]:
     entries: dict[str, Entry] = {}
     issues: list[Issue] = []
@@ -183,6 +186,8 @@ def _parse(
             )
             continue
         empty = not literal.strip()
+        if observe is not None:
+            observe(key, literal)
         if not empty and key in types and not matches_type(literal, types[key]):
             invalid_types.add(key)
         entries[key] = Entry(key, line_number, empty)
@@ -203,6 +208,15 @@ def validate_types(types: Mapping[str, str] | None) -> dict[str, str]:
     return rules
 
 
+@dataclass(frozen=True)
+class _CheckResult:
+    report: Report
+    entries: dict[str, Entry]
+    sources: dict[str, str]
+    expected: dict[str, Entry]
+    template_valid: bool
+
+
 def check(
     template: str | Path,
     environment: str | Path | Sequence[str | Path],
@@ -212,6 +226,27 @@ def check(
     allow_extra: Iterable[str] = (),
     types: Mapping[str, str] | None = None,
 ) -> Report:
+    """Validate a contract against files merged in order, with later keys winning."""
+    return _check(
+        template,
+        environment,
+        strict=strict,
+        optional_keys=optional_keys,
+        allow_extra=allow_extra,
+        types=types,
+    ).report
+
+
+def _check(
+    template: str | Path,
+    environment: str | Path | Sequence[str | Path],
+    *,
+    strict: bool = False,
+    optional_keys: Iterable[str] = (),
+    allow_extra: Iterable[str] = (),
+    types: Mapping[str, str] | None = None,
+    observe: Callable[[str, str], None] | None = None,
+) -> _CheckResult:
     """Validate a contract against files merged in order, with later keys winning."""
     type_rules = validate_types(types)
     if isinstance(optional_keys, (str, bytes)):
@@ -253,7 +288,7 @@ def check(
     invalid_types: set[str] = set()
     for environment_path in environment_paths:
         entries, file_issues, file_invalid_types = _parse(
-            _read(environment_path), str(environment_path), type_rules
+            _read(environment_path), str(environment_path), type_rules, observe
         )
         issues.extend(file_issues)
         actual.update(entries)
@@ -330,9 +365,10 @@ def check(
                         key,
                     )
                 )
-    return Report(
+    report = Report(
         str(template_path),
         tuple(str(path) for path in environment_paths),
         len(expected.keys() - optional),
         tuple(issues),
     )
+    return _CheckResult(report, actual, sources, expected, not template_issues)

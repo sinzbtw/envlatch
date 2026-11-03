@@ -60,8 +60,8 @@ def _strings(value, field: str, *, nonempty: bool = False) -> tuple[str, ...]:
     return tuple(_string(item, field) for item in value)
 
 
-def load_config(path: str | Path) -> Config:
-    """Read settings; configured paths are relative to the config directory."""
+def _load_object(path: str | Path) -> dict:
+    """Read a JSON object without exposing rejected configuration contents."""
     config_path = Path(path)
     try:
         text = config_path.read_text(encoding="utf-8-sig")
@@ -79,6 +79,15 @@ def load_config(path: str | Path) -> Config:
         raise InputError(f"Invalid JSON configuration: {config_path}") from None
     if not isinstance(data, dict):
         raise InputError("Configuration must be a JSON object.")
+    return data
+
+
+def load_config(path: str | Path) -> Config:
+    """Read settings; configured paths are relative to the config directory."""
+    return _settings(_load_object(path), Path(path).absolute().parent)
+
+
+def _settings(data: dict, base: Path) -> Config:
     if data.keys() - _FIELDS:
         raise InputError(
             "Unknown configuration option. Allowed options: template, env, strict, optional, allow_extra, format, types."
@@ -87,7 +96,6 @@ def load_config(path: str | Path) -> Config:
         raise InputError("Configuration field 'strict' requires a boolean.")
     if "format" in data and data["format"] not in _FORMATS:
         raise InputError("Configuration field 'format' must be text, json or github.")
-    base = config_path.absolute().parent
     template = None
     environments = None
     if "template" in data:

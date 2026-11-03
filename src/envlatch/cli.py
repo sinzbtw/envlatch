@@ -71,9 +71,15 @@ def render_github(report: Report) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    argv = list(argv) if argv is not None else sys.argv[1:]
+    if argv and argv[0] == "compare":
+        from .compare_cli import main as compare_main
+
+        return compare_main(argv[1:])
     parser = argparse.ArgumentParser(
         prog="envlatch",
         description="Check dotenv keys against a template without displaying values.",
+        epilog="Compare independent environments: envlatch compare --help",
     )
     parser.add_argument("--version", action="version", version=f"EnvLatch {__version__}")
     parser.add_argument("--config", metavar="PATH", help="explicit JSON settings file")

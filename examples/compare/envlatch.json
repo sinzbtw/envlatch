@@ -1,0 +1,17 @@
+{
+  "template": "template.env.example",
+  "environments": {
+    "dev": ["dev.env"],
+    "staging": ["staging.env"],
+    "production": ["production.env"]
+  },
+  "strict": true,
+  "types": {
+    "API_TOKEN": "string",
+    "DATABASE_URL": "url",
+    "PORT": "port",
+    "DEBUG": "boolean",
+    "LOG_LEVEL": "string"
+  },
+  "compare_values": ["LOG_LEVEL"]
+}

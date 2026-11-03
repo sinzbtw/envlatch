@@ -20,6 +20,7 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 - Reports include variable names and locations, never their values or source lines.
 - Save paths and validation policy in an explicit JSON project config, with CLI overrides.
 - Optionally check selected values as string, integer, boolean, URL or port using JSON `types` rules.
+- Compare independent named environments for missing/blank keys, type drift and explicitly selected setting differences.
 - Deterministic text, JSON, and GitHub Actions reports use exit codes suitable for scripts and CI.
 
 EnvLatch reads files only. It does not load variables into your process, evaluate shell commands, expand references, or read values from the current process environment. It validates presence, nonblank values and explicitly configured type syntax. It does not verify credentials, connect to URLs or check whether a port is available.
@@ -291,6 +292,63 @@ envlatch --template .env.example --env examples/allow-extra/development.env --st
 - The option works with text, JSON, and GitHub Actions output. JSON schema version `1` and `checked_keys` remain unchanged.
 
 Python callers can use `check(template, environment, strict=True, allow_extra=["DEBUG", "CI_*"])`. To make a declared key optional instead, use `--optional KEY`.
+
+## Compare dev, staging and production
+
+Use the separate `compare` command to check independent environments against one shared template:
+
+~~~sh
+envlatch compare --template .env.example --env dev=.env.dev --env staging=.env.staging --env production=.env.production
+~~~
+
+Each `NAME=PATH` identifies an environment. Repeat a name to overlay files **inside that environment**, for example `--env dev=.env --env dev=.env.local --env production=.env.production`. At least two distinct names are required. Names are case-sensitive, start with an ASCII letter, and contain at most 32 ASCII letters, digits, underscores or hyphens. CLI paths are relative to the working directory and may contain `=`.
+
+For a complete example with invented values, run:
+
+~~~sh
+envlatch compare --config examples/compare/envlatch.json
+~~~
+
+Comparison configuration uses `environments` instead of the single-environment `env` array:
+
+~~~json
+{
+  "template": "template.env.example",
+  "environments": {
+    "dev": ["dev.env"],
+    "staging": ["staging.env"],
+    "production": ["production.env"]
+  },
+  "strict": true,
+  "types": {
+    "API_TOKEN": "string",
+    "DATABASE_URL": "url",
+    "PORT": "port",
+    "DEBUG": "boolean",
+    "LOG_LEVEL": "string"
+  },
+  "compare_values": ["LOG_LEVEL"]
+}
+~~~
+
+The [committed comparison example](https://github.com/sinzbtw/envlatch/blob/main/examples/compare/envlatch.json) includes the template and all environment files. In JSON, file lists are nonempty arrays; paths are relative to the config directory. `optional`, `allow_extra`, `strict`, `types` and `format` keep their existing meanings and apply separately to every environment.
+
+- Each environment receives the normal missing, blank, syntax, duplicate and declared-type checks. Required missing/blank keys remain errors. Differences in presence/blankness for optional or extra keys are warnings; strict mode still controls extra keys only.
+- Nonblank values without declared types are compared by compatible syntax: boolean, integer, URL, or otherwise string. `0` and `1` are compatible with both boolean and integer; `port` is checked only when explicitly declared. Incompatible types produce `type_mismatch` and exit `1`. A declared type takes precedence; a failing type rule produces the existing `invalid_type` instead of a duplicate drift error. Declare credentials as `string` when their literal syntax varies.
+- **Value equality is disabled by default.** Secret values can legitimately differ between environments. Select only settings that should match using `compare_values` or repeated `--compare-values KEY`. Selected names must exist in the template; typos produce `unknown_compare_key` and exit `1`. Differences produce `value_mismatch` and exit `1`, without showing either value.
+- Selected values use the existing literal dotenv rules: quotes/comments are removed, unquoted outer whitespace is trimmed, and no expansion or coercion occurs. Thus `false` and `FALSE` pass boolean validation but differ as selected settings. Blank forms compare equally; an absent optional variable receives a presence diagnostic rather than an equality check.
+- Reports retain only names, files, lines, presence/blankness and type labels. Selected settings are compared with fresh per-run keyed fingerprints; neither values, fingerprints nor keys for those fingerprints appear in reports. No network requests or process-environment reads occur. Keys, environment labels and paths are diagnostic metadata, so use non-sensitive names.
+- CLI flags override corresponding config settings. Any CLI `--env` replaces the entire named environment map; repeated names form the replacement overlays. `--optional`, `--allow-extra` and `--compare-values` replace their configured lists. `--no-strict` and `--format` override those settings as usual. Configuration is explicit and structurally validated even when overridden.
+
+Try a deliberately drifting environment; this command reports a missing token, an invalid port and a changed selected setting, and exits `1`:
+
+~~~sh
+envlatch compare --config examples/compare/envlatch.json --env dev=examples/compare/dev.env --env production=examples/compare/drift.env
+~~~
+
+Use `--format text`, `json` or `github`. Text includes a per-key overview and diagnostics; GitHub Actions output uses escaped annotations and a comparison summary. Comparison JSON has `kind: "comparison"`, its own `schema_version: 1`, `status`, `template`, named `environments` with `files`, `keys` with safe `observations`, error/warning counts and `issues`. Each observation has `environment`, `state` (`missing`, `blank`, `present`), `types`, `path` and `line`; each issue adds an `environment` label, or `null` for cross-environment/configuration diagnostics. Existing validation JSON remains unchanged. Exit codes stay `0` for no errors, `1` for validation/drift errors, and `2` for usage/input errors.
+
+Python API: `from envlatch import compare`, then `compare(template, {"dev": [".env", ".env.local"], "production": ".env.production"}, types={"PORT": "port"}, compare_values=["LOG_LEVEL"])`. It returns a value-free `ComparisonReport`; `check()`, `parse()` metadata and previous CLI/config commands remain compatible.
 
 ## Layered environment files
 

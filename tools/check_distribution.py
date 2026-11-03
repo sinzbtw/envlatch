@@ -39,6 +39,12 @@ SOURCE_FILES = {
     "examples/types/template.env.example",
     "examples/types/development.env",
     "examples/types/envlatch.json",
+    "examples/compare/template.env.example",
+    "examples/compare/envlatch.json",
+    "examples/compare/dev.env",
+    "examples/compare/staging.env",
+    "examples/compare/production.env",
+    "examples/compare/drift.env",
     "PKG-INFO",
 }
 EGG_FILES = {"PKG-INFO", "SOURCES.txt", "dependency_links.txt", "entry_points.txt", "top_level.txt"}
@@ -243,6 +249,14 @@ def check_installs(artifacts, version):
             run(cli, "--version")
             run(python, "-m", "envlatch", "--help")
             run(cli, "--config", ROOT / "examples/types/envlatch.json", "--format", "json")
+            run(
+                cli,
+                "compare",
+                "--config",
+                ROOT / "examples/compare/envlatch.json",
+                "--format",
+                "json",
+            )
             run(python, "-m", "unittest", "discover", "-s", ROOT / "tests", "-q")
             print(f"Installed and tested {artifact.name} outside the checkout.", flush=True)
 

@@ -6,6 +6,9 @@ include examples/config/envlatch.json
 include examples/optional/.env.example
 include examples/types/template.env.example
 include examples/types/development.env examples/types/envlatch.json
+include examples/compare/template.env.example examples/compare/envlatch.json
+include examples/compare/dev.env examples/compare/staging.env
+include examples/compare/production.env examples/compare/drift.env
 include tools/check_distribution.py
 include requirements/requirements-dev.txt
 recursive-include src/envlatch *.py
