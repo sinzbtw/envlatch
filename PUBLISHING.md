@@ -6,7 +6,7 @@
 
 ### One-time PyPI setup
 
-1. Sign into [PyPI](https://pypi.org/) using an account with a verified email address and two-factor authentication. Do not send passwords, recovery codes or authentication codes to maintainers or this chat.
+1. Sign into [PyPI](https://pypi.org/) using an account with a verified email address and two-factor authentication.
 2. For the first upload, open [account → Publishing](https://pypi.org/manage/account/publishing/) and add a **pending GitHub publisher** with these exact values:
 
    | PyPI field | Value |
@@ -17,7 +17,7 @@
    | Workflow name | `publish.yml` (filename only) |
    | Environment name | `pypi` |
 
-   If the project already exists under your account, use [project → Publishing](https://pypi.org/manage/project/envlatch/settings/publishing/) instead. A pending publisher does not reserve the package name. Do not upload to an unrelated owner's project or invent a replacement name without discussing it.
+   If the project already exists under your account, use [project → Publishing](https://pypi.org/manage/project/envlatch/settings/publishing/) instead. A pending publisher does not reserve the package name.
 3. The repository's `pypi` environment allows only tags matching `v*`. Package validation also requires the exact tag `v<package version>`, a stable three-part version and a commit reachable from `main`. The account owner controls release creation; this setup does not require approval on each upload. Adding environment reviewers later is possible if manual approval is desired.
 4. After verifying the publisher exists, enable the repository Actions variable `PYPI_PUBLISHING_ENABLED` with the exact value `true`. Until then, build and installation checks still run, but no upload is attempted. This is a non-secret switch, not a credential.
 
@@ -55,7 +55,7 @@ References: [PyPI pending publishers](https://docs.pypi.org/trusted-publishers/c
 
 ### Однократная настройка
 
-1. Войдите в [PyPI](https://pypi.org/) с подтверждённой почтой и включённой 2FA. Пароль, коды входа и восстановления никому не отправляйте.
+1. Войдите в [PyPI](https://pypi.org/) с подтверждённой почтой и включённой 2FA.
 2. На странице [аккаунт → Publishing](https://pypi.org/manage/account/publishing/) добавьте **pending GitHub publisher**: проект `envlatch`, владелец `sinzbtw`, репозиторий `envlatch`, файл workflow `publish.yml`, среда `pypi`. Если проект уже принадлежит вашему аккаунту, добавляйте издателя в настройках этого проекта. Pending Publisher ещё не резервирует имя пакета.
 3. В GitHub настроена среда `pypi`, допускающая только теги `v*`. Дополнительная проверка требует точного совпадения тега `v<версия пакета>`, стабильной версии из трёх чисел и коммита, присутствующего в истории `main`. Публикация выполняется автоматически после создания релиза владельцем репозитория; отдельного подтверждения каждой загрузки нет.
 4. После проверки издателя включите переменную репозитория `PYPI_PUBLISHING_ENABLED=true`. Это обычный переключатель, не секрет. До включения сборка и тесты работают, но загрузка в PyPI не запускается.
