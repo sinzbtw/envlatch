@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from .compare import comparison_keys, environment_paths
+from .comparison import comparison_keys, environment_paths
 from .config import _FIELDS, Config, _load_object, _settings, _strings
 from .core import InputError
 

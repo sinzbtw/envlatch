@@ -32,7 +32,7 @@ python -m unittest discover -s tests -v
 python -m pip check
 ```
 
-The parser and contract checks are in `src/envlatch/core.py`; literal type predicates are in `src/envlatch/_types.py`; standard CLI handling is in `src/envlatch/cli.py`. Independent-environment comparison, its configuration and output live in `compare.py`, `compare_config.py` and `compare_cli.py` under `src/envlatch/`. Shared JSON settings are loaded by `src/envlatch/config.py`; behavioral tests are in `tests/`. There are no runtime dependencies.
+The parser and contract checks are in `src/envlatch/core.py`; literal type predicates are in `src/envlatch/_types.py`; standard CLI handling is in `src/envlatch/cli.py`. Independent-environment comparison, its configuration and output live in `comparison.py`, `compare_config.py` and `compare_cli.py` under `src/envlatch/`. Shared JSON settings are loaded by `src/envlatch/config.py`; behavioral tests are in `tests/`. There are no runtime dependencies.
 
 ### Quality checks
 
@@ -112,7 +112,7 @@ python -m unittest discover -s tests -v
 python -m pip check
 ```
 
-Парсер и проверки контракта находятся в `src/envlatch/core.py`, проверки буквальных типов — в `src/envlatch/_types.py`, обычный CLI — в `src/envlatch/cli.py`. Сравнение независимых окружений, его конфиг и вывод находятся в `compare.py`, `compare_config.py` и `compare_cli.py` внутри `src/envlatch/`. Общие JSON-настройки загружаются в `src/envlatch/config.py`, поведенческие тесты — в `tests/`. Зависимостей для запуска нет.
+Парсер и проверки контракта находятся в `src/envlatch/core.py`, проверки буквальных типов — в `src/envlatch/_types.py`, обычный CLI — в `src/envlatch/cli.py`. Сравнение независимых окружений, его конфиг и вывод находятся в `comparison.py`, `compare_config.py` и `compare_cli.py` внутри `src/envlatch/`. Общие JSON-настройки загружаются в `src/envlatch/config.py`, поведенческие тесты — в `tests/`. Зависимостей для запуска нет.
 
 ### Проверки качества
 

@@ -9,8 +9,8 @@ from dataclasses import asdict, replace
 
 from . import __version__
 from .cli import render_github
-from .compare import ComparisonIssue, ComparisonReport, Environment, compare, environment_paths
 from .compare_config import ComparisonConfig, load_comparison_config
+from .comparison import ComparisonIssue, ComparisonReport, Environment, compare, environment_paths
 from .config import Config
 from .core import InputError, Report
 

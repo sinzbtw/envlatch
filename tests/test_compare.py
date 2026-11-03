@@ -11,9 +11,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from envlatch import compare
-from envlatch.compare import comparison_keys, environment_paths
 from envlatch.compare_cli import render_comparison
 from envlatch.compare_config import load_comparison_config
+from envlatch.comparison import comparison_keys, environment_paths
 from envlatch.core import InputError, check, parse
 
 
@@ -56,6 +56,11 @@ class ComparisonTests(unittest.TestCase):
         return subprocess.run(
             [*command, *args], cwd=self.root.parent, capture_output=True, text=True, check=False
         )
+
+    def test_comparison_module_does_not_shadow_the_public_function(self):
+        import envlatch.comparison as comparison_module
+
+        self.assertIs(comparison_module.compare, compare)
 
     def test_same_structure_passes_without_comparing_secret_values(self):
         report = self.compare()
@@ -183,7 +188,7 @@ class ComparisonTests(unittest.TestCase):
 
     def test_hmac_key_is_fresh_for_each_comparison_and_not_returned(self):
         with patch(
-            "envlatch.compare.secrets.token_bytes", side_effect=[b"a" * 32, b"b" * 32]
+            "envlatch.comparison.secrets.token_bytes", side_effect=[b"a" * 32, b"b" * 32]
         ) as random_key:
             first = self.compare(compare_values=["TOKEN"])
             second = self.compare(compare_values=["TOKEN"])
