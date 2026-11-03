@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ._types import matches_type
-from .core import _KEY, InputError, Issue, _check, validate_types
+from .core import InputError, Issue, _check, _valid_key, validate_types
 
 _NAME = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,31}\Z")
 
@@ -96,7 +96,7 @@ def _sequence(values, description):
 
 def comparison_keys(values: Iterable[str]) -> tuple[str, ...]:
     keys = _sequence(values, "Compared setting names")
-    if any(not isinstance(key, str) or not _KEY.fullmatch(key) for key in keys):
+    if any(not _valid_key(key) for key in keys):
         raise InputError("Compared settings must use ASCII environment variable names.")
     return tuple(sorted(set(keys)))
 

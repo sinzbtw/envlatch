@@ -62,6 +62,19 @@ class ComparisonTests(unittest.TestCase):
 
         self.assertIs(comparison_module.compare, compare)
 
+    def test_long_valid_ascii_names_keep_existing_validation_behavior(self):
+        name = "A" * 10000
+        self.template.write_text(name + "=", encoding="utf-8")
+        for label in self.groups:
+            self.write(label, name + "=private-canary")
+        self.assertTrue(self.compare(types={name: "string"}, compare_values=[name]).valid)
+
+    def test_long_invalid_policy_strings_are_rejected_without_echo(self):
+        for option in ("optional_keys", "allow_extra", "compare_values"):
+            with self.subTest(option=option), self.assertRaises(InputError) as caught:
+                self.compare(**{option: ["A" * 100000 + "!private-canary"]})
+            self.assertNotIn("private-canary", str(caught.exception))
+
     def test_same_structure_passes_without_comparing_secret_values(self):
         report = self.compare()
         self.assertTrue(report.valid)

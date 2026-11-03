@@ -10,9 +10,18 @@ from pathlib import Path
 
 from ._types import TYPE_NAMES, matches_type
 
-_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _EXPORT = re.compile(r"export[ \t]+")
-_EXTRA_PATTERN = re.compile(r"[A-Za-z0-9_*?]+\Z")
+_EXTRA_CHARACTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_*?")
+
+
+def _valid_key(value) -> bool:
+    return isinstance(value, str) and value.isascii() and value.isidentifier()
+
+
+def _valid_extra_pattern(value) -> bool:
+    return (
+        isinstance(value, str) and bool(value) and all(char in _EXTRA_CHARACTERS for char in value)
+    )
 
 
 @dataclass(frozen=True)
@@ -149,7 +158,7 @@ def _parse(
             break
         key, value = line.split("=", 1)
         key = key.strip()
-        if not _KEY.fullmatch(key):
+        if not _valid_key(key):
             issues.append(
                 Issue(
                     "error",
@@ -201,7 +210,7 @@ def validate_types(types: Mapping[str, str] | None) -> dict[str, str]:
     if not isinstance(types, Mapping):
         raise InputError("Type rules must be an object mapping variable names to type names.")
     rules = dict(types)
-    if any(not isinstance(key, str) or not _KEY.fullmatch(key) for key in rules):
+    if any(not _valid_key(key) for key in rules):
         raise InputError("Type rules must use ASCII environment variable names.")
     if any(not isinstance(kind, str) or kind not in TYPE_NAMES for kind in rules.values()):
         raise InputError("Type rules must use string, integer, boolean, url or port.")
@@ -255,7 +264,7 @@ def _check(
         optional_names = tuple(optional_keys)
     except TypeError:
         raise InputError("Optional keys must be an iterable of names.") from None
-    if any(not isinstance(key, str) or not _KEY.fullmatch(key) for key in optional_names):
+    if any(not _valid_key(key) for key in optional_names):
         raise InputError("Optional keys must use ASCII environment variable names.")
     optional = frozenset(optional_names)
     if isinstance(allow_extra, (str, bytes)):
@@ -266,10 +275,7 @@ def _check(
         extra_patterns = tuple(allow_extra)
     except TypeError:
         raise InputError("Allow-extra patterns must be an iterable of patterns.") from None
-    if any(
-        not isinstance(pattern, str) or not _EXTRA_PATTERN.fullmatch(pattern)
-        for pattern in extra_patterns
-    ):
+    if any(not _valid_extra_pattern(pattern) for pattern in extra_patterns):
         raise InputError(
             "Allow-extra patterns must contain only ASCII letters, digits, underscores, '*' or '?'."
         )
