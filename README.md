@@ -1,4 +1,4 @@
-**[English](README.md)** | [Русский](README.ru.md)
+**[English](https://github.com/sinzbtw/envlatch/blob/main/README.md)** | [Русский](https://github.com/sinzbtw/envlatch/blob/main/README.ru.md)
 
 # EnvLatch
 
@@ -6,7 +6,7 @@
 
 [![Tests](https://github.com/sinzbtw/envlatch/actions/workflows/ci.yml/badge.svg)](https://github.com/sinzbtw/envlatch/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/sinzbtw/envlatch/blob/main/LICENSE)
 
 EnvLatch is a small, dependency-free Python command-line tool that checks one or more local `.env` files against the keys in a committed `.env.example`. Use it after onboarding, before running a service, or in a deployment check to find configuration drift early.
 
@@ -29,6 +29,17 @@ EnvLatch reads files only. It does not load variables into your process, evaluat
 - UTF-8 input files; a UTF-8 BOM and CRLF line endings are supported.
 
 There are no runtime dependencies. Installation uses pip and setuptools as build tooling.
+
+## Install from PyPI
+
+Once the first PyPI release is published, install EnvLatch in your virtual environment:
+
+~~~sh
+python -m pip install envlatch
+envlatch --version
+~~~
+
+To upgrade, run `python -m pip install --upgrade envlatch`. The package installs the `envlatch` command and `python -m envlatch`; it does not create your configuration files. In your application, create `.env.example` with the expected keys and a local `.env`, then run `envlatch --template .env.example --env .env`. Clone this repository or download its source archive to use the committed examples below.
 
 ## Install from source
 
@@ -133,7 +144,7 @@ Store paths and validation policy once, then run:
 envlatch --config envlatch.json
 ~~~
 
-The committed [envlatch.json](envlatch.json) checks your local `.env` against `.env.example` in strict mode. Create your local `.env` as described in Quick start. A configuration can use these fields:
+The committed [envlatch.json](https://github.com/sinzbtw/envlatch/blob/main/envlatch.json) checks your local `.env` against `.env.example` in strict mode. Create your local `.env` as described in Quick start. A configuration can use these fields:
 
 ~~~json
 {
@@ -203,7 +214,7 @@ Add `types` to your JSON configuration to check selected variables. Keys are cas
 }
 ~~~
 
-Try the complete [type-checking example](examples/types/envlatch.json), including its template and invented environment values:
+Try the complete [type-checking example](https://github.com/sinzbtw/envlatch/blob/main/examples/types/envlatch.json), including its template and invented environment values:
 
 ~~~sh
 envlatch --config examples/types/envlatch.json --format json
@@ -235,7 +246,7 @@ Some settings enable integrations that are deliberately absent in local developm
 envlatch --template examples/optional/.env.example --env .env --optional SENTRY_DSN --optional LOG_LEVEL --strict
 ~~~
 
-The committed [optional-key example](examples/optional/.env.example) declares the usual `DATABASE_URL`, `API_TOKEN`, and `PORT`, plus `SENTRY_DSN` and `LOG_LEVEL`. This self-contained command checks the example without creating local configuration:
+The committed [optional-key example](https://github.com/sinzbtw/envlatch/blob/main/examples/optional/.env.example) declares the usual `DATABASE_URL`, `API_TOKEN`, and `PORT`, plus `SENTRY_DSN` and `LOG_LEVEL`. This self-contained command checks the example without creating local configuration:
 
 ~~~sh
 envlatch --template examples/optional/.env.example --env .env.example --optional SENTRY_DSN --optional LOG_LEVEL --strict --format json
@@ -258,7 +269,7 @@ Shared environment files sometimes contain tool settings that are intentionally 
 envlatch --template .env.example --env .env --strict --allow-extra DEBUG --allow-extra 'CI_*'
 ~~~
 
-The committed [development environment example](examples/allow-extra/development.env) contains the three usual application keys plus `DEBUG` and `TOOL_CACHE_DIR`. Try it directly:
+The committed [development environment example](https://github.com/sinzbtw/envlatch/blob/main/examples/allow-extra/development.env) contains the three usual application keys plus `DEBUG` and `TOOL_CACHE_DIR`. Try it directly:
 
 ~~~sh
 envlatch --template .env.example --env examples/allow-extra/development.env --strict --allow-extra DEBUG --allow-extra 'TOOL_*' --format json
@@ -381,12 +392,14 @@ The package lives in `src/envlatch/`; tests live in `tests/`. The runtime uses o
 
 For a bug report, include your command, Python version, and a minimal example using invented values. Keep both README language versions in sync when changing behavior.
 
-GitHub Releases distribute tagged source archives only. Wheel builds are used for local installation checks and are not uploaded as release assets.
+GitHub Releases distribute tagged source archives only. Wheels and sdists are uploaded to PyPI, not GitHub Release assets.
+
+PyPI uploads use GitHub Actions Trusted Publishing after validation, without a stored PyPI token. Maintainers: see [Publishing](https://github.com/sinzbtw/envlatch/blob/main/PUBLISHING.md) for the one-time setup, automated release checks and recovery instructions.
 
 ## Community
 
-Contributions in English or Russian are welcome. See [Contributing](CONTRIBUTING.md), the [Code of Conduct](CODE_OF_CONDUCT.md), and the [Security Policy](SECURITY.md). Use the [issue forms](https://github.com/sinzbtw/envlatch/issues/new/choose) for ordinary bugs and feature requests; report suspected vulnerabilities privately through the security policy.
+Contributions in English or Russian are welcome. See [Contributing](https://github.com/sinzbtw/envlatch/blob/main/CONTRIBUTING.md), the [Code of Conduct](https://github.com/sinzbtw/envlatch/blob/main/CODE_OF_CONDUCT.md), and the [Security Policy](https://github.com/sinzbtw/envlatch/blob/main/SECURITY.md). Use the [issue forms](https://github.com/sinzbtw/envlatch/issues/new/choose) for ordinary bugs and feature requests; report suspected vulnerabilities privately through the security policy.
 
 ## License
 
-[MIT](LICENSE) © 2026 EnvLatch contributors.
+[MIT](https://github.com/sinzbtw/envlatch/blob/main/LICENSE) © 2026 EnvLatch contributors.

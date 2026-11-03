@@ -1,0 +1,151 @@
+name: Package and publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a stable release tag after all checks (requires PyPI setup)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and inspect wheel/sdist
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.inspect.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Require tagged source to belong to main
+        if: startsWith(github.ref, 'refs/tags/')
+        run: git merge-base --is-ancestor HEAD origin/main
+      - name: Install build tools (not runtime dependencies)
+        run: python -m pip install build twine
+      - name: Build sdist and build the wheel from that sdist
+        run: python -m build
+      - name: Validate metadata, archive contents and release version
+        id: inspect
+        env:
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          REQUIRE_RELEASE_TAG: ${{ github.event_name == 'release' || inputs.publish == true }}
+        run: python tools/check_distribution.py dist --tag "$RELEASE_TAG"
+      - name: Check PyPI long description and metadata
+        run: python -m twine check --strict dist/*
+      - name: Store exactly the validated distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Explain first-publication gate
+        if: vars.PYPI_PUBLISHING_ENABLED != 'true' && github.event_name == 'release'
+        run: echo 'PyPI upload is disabled until the pending publisher is configured. See PUBLISHING.md.' >> "$GITHUB_STEP_SUMMARY"
+
+  test:
+    name: Installed wheel and sdist / ${{ matrix.os }} / Python ${{ matrix.python }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.10'
+          - os: ubuntu-latest
+            python: '3.13'
+          - os: windows-latest
+            python: '3.13'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Test both installed packages outside the checkout
+        run: python tools/check_distribution.py dist --install-test
+
+  publish:
+    name: Publish to PyPI with Trusted Publishing
+    needs: [build, test]
+    if: >-
+      github.repository == 'sinzbtw/envlatch' &&
+      vars.PYPI_PUBLISHING_ENABLED == 'true' &&
+      startsWith(github.ref, 'refs/tags/') &&
+      ((github.event_name == 'release' && !github.event.release.prerelease) ||
+       (github.event_name == 'workflow_dispatch' && inputs.publish == true))
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/envlatch/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Upload validated artifacts and PEP 740 attestations
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/
+          attestations: true
+          skip-existing: false
+
+  verify-pypi:
+    name: Verify installation from PyPI
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Install the exact released version from the public index
+        env:
+          PACKAGE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          import time
+          version = os.environ['PACKAGE_VERSION']
+          for attempt in range(5):
+              result = subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-cache-dir',
+                  '--index-url', 'https://pypi.org/simple/', '--only-binary=:all:', '--no-deps',
+                  f'envlatch=={version}'])
+              if result.returncode == 0:
+                  break
+              if attempt == 4:
+                  raise SystemExit(result.returncode)
+              time.sleep(10)
+          import envlatch
+          from importlib.metadata import version as installed_version
+          assert envlatch.__version__ == installed_version('envlatch') == version
+          subprocess.run(['envlatch', '--version'], check=True)
+          subprocess.run([sys.executable, '-m', 'pip', 'check'], check=True)
+          PY

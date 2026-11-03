@@ -1,0 +1,15 @@
+include LICENSE README.md README.ru.md CHANGELOG.md
+include CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md PUBLISHING.md
+include pyproject.toml MANIFEST.in .env.example envlatch.json
+include examples/allow-extra/development.env
+include examples/config/envlatch.json
+include examples/optional/.env.example
+include examples/types/template.env.example
+include examples/types/development.env examples/types/envlatch.json
+include tools/check_distribution.py
+recursive-include src/envlatch *.py
+recursive-include tests test_*.py
+global-exclude *.py[cod]
+prune .venv
+prune .git
+prune .github

@@ -1,18 +1,27 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "envlatch"
-version = "0.6.0"
+version = "0.6.1"
 description = "Check dotenv files against a contract without exposing values."
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "sinzbtw"}]
 keywords = ["dotenv", "environment", "configuration", "validation", "cli"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Quality Assurance",
 ]
@@ -22,8 +31,15 @@ dependencies = []
 envlatch = "envlatch.cli:main"
 
 [project.urls]
+Homepage = "https://github.com/sinzbtw/envlatch"
+Documentation = "https://github.com/sinzbtw/envlatch#readme"
 Repository = "https://github.com/sinzbtw/envlatch"
 Issues = "https://github.com/sinzbtw/envlatch/issues"
+Changelog = "https://github.com/sinzbtw/envlatch/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["envlatch*"]
+
+[tool.setuptools]
+include-package-data = false

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 — 2026-11-03
+
+- Prepare PyPI metadata with an SPDX MIT license, explicit Markdown description, project links and Python classifiers; retain zero runtime dependencies.
+- Include public examples, bilingual documentation, configuration, tests and release tooling in the sdist, while restricting wheel contents to package code and metadata.
+- Build a wheel from the sdist, reject unexpected/stale artifacts and unsafe archive paths, check metadata with Twine, and test both installed distributions outside the checkout on Linux/Windows.
+- Add release-triggered GitHub Actions Trusted Publishing with a tag-restricted `pypi` environment, isolated OIDC upload permissions, pinned Actions and provenance attestations; require matching versions and successful package checks before upload.
+- Keep uploads disabled until the one-time PyPI publisher setup is complete, verify installation from PyPI after publication, and document setup/recovery in English and Russian.
+- Preserve source-only GitHub Release assets and all v0.6.0 validation behavior.
+
 ## 0.6.0 — 2026-11-02
 
 - Add opt-in `types` rules in JSON configuration and the Python `check(..., types=...)` API: string, integer, boolean, URL (`url`) and port.

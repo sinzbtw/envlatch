@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 from envlatch.config import Config, load_config
+from envlatch import __version__
 from envlatch.core import InputError
 
 
@@ -305,7 +306,7 @@ class ConfigCliTests(ConfigFixture):
         self.path.unlink()
         result = self.cli('--version')
         self.assertEqual(result.returncode, 0)
-        self.assertIn('EnvLatch 0.6.0', result.stdout)
+        self.assertIn(f'EnvLatch {__version__}', result.stdout)
 
 
 if __name__ == '__main__':
