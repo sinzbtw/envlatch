@@ -11,7 +11,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ._types import matches_type
-from .core import InputError, Issue, _check, _valid_key, validate_types
+from .core import (
+    InputError,
+    Issue,
+    _check,
+    _ConstraintSettings,
+    _valid_key,
+    validate_constraints,
+    validate_types,
+)
 
 _NAME = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,31}\Z")
 
@@ -119,6 +127,7 @@ def compare(
     allow_extra: Iterable[str] = (),
     types: Mapping[str, str] | None = None,
     compare_values: Iterable[str] = (),
+    constraints: _ConstraintSettings | None = None,
 ) -> ComparisonReport:
     """Validate each environment, compare structure/types and explicitly selected settings."""
     if (
@@ -131,6 +140,7 @@ def compare(
     if len(groups) < 2:
         raise InputError("Comparison requires at least two named environments.")
     rules = validate_types(types)
+    value_rules = validate_constraints(constraints)
     selected = comparison_keys(compare_values)
     optional = _sequence(optional_keys, "Optional keys")
     allowed = _sequence(allow_extra, "Allow-extra patterns")
@@ -158,6 +168,7 @@ def compare(
             optional_keys=optional,
             allow_extra=allowed,
             types=rules,
+            constraints=value_rules,
             observe=observe,
         )
         results[name] = result

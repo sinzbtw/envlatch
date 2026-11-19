@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from decimal import Decimal
 from fnmatch import fnmatchcase
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from ._types import TYPE_NAMES, matches_type
 
 _EXPORT = re.compile(r"export[ \t]+")
 _EXTRA_CHARACTERS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_*?")
+_ConstraintSettings = Mapping[str, Mapping[str, int | Sequence[str]]]
 
 
 def _valid_key(value) -> bool:
@@ -72,6 +74,71 @@ class InputError(Exception):
     """Invalid input or configuration; messages never contain dotenv values."""
 
 
+@dataclass(frozen=True)
+class _ValueConstraint:
+    one_of: frozenset[str] | None = field(repr=False)
+    minimum: int | None = field(repr=False)
+    maximum: int | None = field(repr=False)
+
+    def matches(self, value: str) -> bool:
+        if self.one_of is not None and value not in self.one_of:
+            return False
+        if self.minimum is None and self.maximum is None:
+            return True
+        if not matches_type(value, "integer"):
+            return False
+        # Decimal compares exactly without Python's int(string) digit limit.
+        number = Decimal(value)
+        return (self.minimum is None or number >= self.minimum) and (
+            self.maximum is None or number <= self.maximum
+        )
+
+
+def validate_constraints(constraints: _ConstraintSettings | None) -> dict[str, _ValueConstraint]:
+    """Validate and snapshot rules without exposing configured values."""
+    if constraints is None:
+        return {}
+    if not isinstance(constraints, Mapping):
+        raise InputError("Constraints must be an object mapping variable names to rules.")
+    rules = {}
+    for key, rule in constraints.items():
+        if not _valid_key(key):
+            raise InputError("Constraints must use ASCII environment variable names.")
+        if not isinstance(rule, Mapping) or not rule or rule.keys() - {"one_of", "min", "max"}:
+            raise InputError("Each constraint must contain one or more of one_of, min and max.")
+        choices = None
+        if "one_of" in rule:
+            choices = rule["one_of"]
+            if (
+                not isinstance(choices, Sequence)
+                or isinstance(choices, (str, bytes))
+                or not choices
+                or any(
+                    not isinstance(item, str)
+                    or not item.strip()
+                    or any(char in item for char in ("\r", "\n", "\x00"))
+                    for item in choices
+                )
+            ):
+                raise InputError(
+                    "Constraint 'one_of' requires a nonempty array of nonblank, single-line strings."
+                )
+            try:
+                for item in choices:
+                    item.encode("utf-8")
+            except UnicodeError:
+                raise InputError("Constraint 'one_of' contains invalid Unicode.") from None
+            choices = frozenset(choices)
+        for bound in ("min", "max"):
+            if bound in rule and type(rule[bound]) is not int:
+                raise InputError("Constraint bounds must be integers.")
+        minimum, maximum = rule.get("min"), rule.get("max")
+        if minimum is not None and maximum is not None and minimum > maximum:
+            raise InputError("Constraint 'min' must be less than or equal to 'max'.")
+        rules[key] = _ValueConstraint(choices, minimum, maximum)
+    return rules
+
+
 def _closing_quote(value: str) -> int | None:
     quote = value[0]
     escaped = False
@@ -129,10 +196,12 @@ def _parse(
     path: str,
     types: Mapping[str, str],
     observe: Callable[[str, str], None] | None = None,
-) -> tuple[dict[str, Entry], list[Issue], set[str]]:
+    *,
+    constraints: Mapping[str, _ValueConstraint] | None = None,
+) -> tuple[dict[str, Entry], list[Issue], dict[str, str]]:
     entries: dict[str, Entry] = {}
     issues: list[Issue] = []
-    invalid_types: set[str] = set()
+    invalid_values: dict[str, str] = {}
     # Stop on malformed syntax so rejected multiline fragments cannot become keys.
     # Only LF/CRLF are physical line boundaries; Unicode in values stays literal.
     for line_number, raw in enumerate(text.removeprefix("\ufeff").split("\n"), 1):
@@ -197,10 +266,17 @@ def _parse(
         empty = not literal.strip()
         if observe is not None:
             observe(key, literal)
-        if not empty and key in types and not matches_type(literal, types[key]):
-            invalid_types.add(key)
+        if not empty:
+            if key in types and not matches_type(literal, types[key]):
+                invalid_values[key] = "invalid_type"
+            elif (
+                constraints is not None
+                and key in constraints
+                and not constraints[key].matches(literal)
+            ):
+                invalid_values[key] = "invalid_constraint"
         entries[key] = Entry(key, line_number, empty)
-    return entries, issues, invalid_types
+    return entries, issues, invalid_values
 
 
 def validate_types(types: Mapping[str, str] | None) -> dict[str, str]:
@@ -234,6 +310,7 @@ def check(
     optional_keys: Iterable[str] = (),
     allow_extra: Iterable[str] = (),
     types: Mapping[str, str] | None = None,
+    constraints: _ConstraintSettings | None = None,
 ) -> Report:
     """Validate a contract against files merged in order, with later keys winning."""
     return _check(
@@ -243,6 +320,7 @@ def check(
         optional_keys=optional_keys,
         allow_extra=allow_extra,
         types=types,
+        constraints=validate_constraints(constraints),
     ).report
 
 
@@ -254,6 +332,7 @@ def _check(
     optional_keys: Iterable[str] = (),
     allow_extra: Iterable[str] = (),
     types: Mapping[str, str] | None = None,
+    constraints: Mapping[str, _ValueConstraint],
     observe: Callable[[str, str], None] | None = None,
 ) -> _CheckResult:
     """Validate a contract against files merged in order, with later keys winning."""
@@ -291,16 +370,21 @@ def _check(
     issues = list(template_issues)
     actual: dict[str, Entry] = {}
     sources: dict[str, str] = {}
-    invalid_types: set[str] = set()
+    invalid_values: dict[str, str] = {}
     for environment_path in environment_paths:
-        entries, file_issues, file_invalid_types = _parse(
-            _read(environment_path), str(environment_path), type_rules, observe
+        entries, file_issues, file_invalid_values = _parse(
+            _read(environment_path),
+            str(environment_path),
+            type_rules,
+            observe,
+            constraints=constraints,
         )
         issues.extend(file_issues)
         actual.update(entries)
         sources.update((key, str(environment_path)) for key in entries)
-        invalid_types.difference_update(entries)
-        invalid_types.update(file_invalid_types)
+        for key in invalid_values.keys() & entries.keys():
+            del invalid_values[key]
+        invalid_values.update(file_invalid_values)
 
     # A broken contract cannot reliably define required keys.
     if not template_issues:
@@ -311,6 +395,16 @@ def _check(
                     "unknown_type_key",
                     str(template_path),
                     f"Typed key '{key}' is absent from the template.",
+                    key=key,
+                )
+            )
+        for key in sorted(constraints.keys() - expected.keys()):
+            issues.append(
+                Issue(
+                    "error",
+                    "unknown_constraint_key",
+                    str(template_path),
+                    f"Constrained key '{key}' is absent from the template.",
                     key=key,
                 )
             )
@@ -359,18 +453,14 @@ def _check(
                     key,
                 )
             )
-        for key in sorted(type_rules.keys() & expected.keys() & actual.keys()):
-            if key in invalid_types:
-                issues.append(
-                    Issue(
-                        "error",
-                        "invalid_type",
-                        sources[key],
-                        f"Key '{key}' must have type '{type_rules[key]}'.",
-                        actual[key].line,
-                        key,
-                    )
-                )
+        for key in sorted(invalid_values.keys() & expected.keys()):
+            code = invalid_values[key]
+            message = (
+                f"Key '{key}' must have type '{type_rules[key]}'."
+                if code == "invalid_type"
+                else f"Key '{key}' does not meet its configured value constraints."
+            )
+            issues.append(Issue("error", code, sources[key], message, actual[key].line, key))
     report = Report(
         str(template_path),
         tuple(str(path) for path in environment_paths),

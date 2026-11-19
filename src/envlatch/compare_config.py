@@ -23,7 +23,7 @@ def load_comparison_config(path: str | Path) -> ComparisonConfig:
     fields = (_FIELDS - {"env"}) | {"environments", "compare_values"}
     if data.keys() - fields:
         raise InputError(
-            "Unknown comparison option. Use template, environments, strict, optional, allow_extra, types, compare_values or format."
+            "Unknown comparison option. Use template, environments, strict, optional, allow_extra, types, constraints, compare_values or format."
         )
     groups = data.pop("environments", {})
     if not isinstance(groups, dict):

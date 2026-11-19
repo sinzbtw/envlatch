@@ -118,6 +118,7 @@ def main(argv=None) -> int:
             optional_keys=args.optional if args.optional is not None else settings.optional_keys,
             allow_extra=args.allow_extra if args.allow_extra is not None else settings.allow_extra,
             types=settings.types,
+            constraints=settings.constraints,
             compare_values=args.compare_values
             if args.compare_values is not None
             else loaded.compare_values,

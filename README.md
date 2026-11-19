@@ -20,6 +20,7 @@ EnvLatch is a small, dependency-free Python command-line tool that checks one or
 - Reports include variable names and locations, never their values or source lines.
 - Save paths and validation policy in an explicit JSON project config, with CLI overrides.
 - Optionally check selected values as string, integer, boolean, URL or port using JSON `types` rules.
+- Restrict selected settings to exact choices or inclusive integer bounds using JSON `constraints` rules.
 - Compare independent named environments for missing/blank keys, type drift and explicitly selected setting differences.
 - Deterministic text, JSON, and GitHub Actions reports use exit codes suitable for scripts and CI.
 
@@ -177,6 +178,7 @@ The second environment file in this example must exist; omit it if you do not us
 | `optional` | Array of key names | `[]` |
 | `allow_extra` | Array of allowance patterns | `[]` |
 | `types` | Object mapping template key names to type names | `{}` (disabled) |
+| `constraints` | Object mapping template key names to value rules | `{}` (disabled) |
 | `format` | `text`, `json`, or `github` | `text` |
 
 Settings are loaded only when `--config` is supplied. UTF-8, BOM and CRLF are supported; use standard JSON without comments. Unknown fields, duplicate fields, invalid types, blank entries and invalid Unicode are rejected. Paths and strings are literal: shell commands, home shortcuts and environment references are not expanded or executed.
@@ -246,6 +248,34 @@ envlatch --config examples/types/envlatch.json --format json
 - CLI path overrides keep the configured type rules. Existing exit codes, required-key counts and JSON report schema `1` are unchanged.
 
 Python callers can use `check(template, environment, types={"PORT": "port", "DEBUG": "boolean"})`, together with existing `optional_keys`, `allow_extra` and `strict` arguments.
+
+## Value constraints
+
+Use `constraints` in the JSON config to catch a misspelled log level or a port below your application's minimum. The following settings go alongside `template` and `env`.
+
+```json
+{
+  "types": {"PORT": "port"},
+  "constraints": {
+    "LOG_LEVEL": {"one_of": ["debug", "info", "warning", "error"]},
+    "PORT": {"min": 1024},
+    "WORKERS": {"min": 1, "max": 16}
+  }
+}
+```
+
+- `one_of` accepts a nonempty array of nonblank, single-line strings. Matching is exact and case-sensitive, using the parsed dotenv literal. For example, `'info'` matches `"info"` in the array, while `INFO` does not.
+- `min` and `max` are inclusive integer bounds. You can set either or both. Values accept signed ASCII decimal notation, including leading zeroes. With `types.PORT` set to `port`, the port also has to satisfy that type's syntax and range.
+- Set one or more rules per key. They all apply to the effective nonblank value after overlays. Missing or blank optional keys are allowed, and template values are ignored. In `compare`, the same rules apply separately to every environment.
+- A failed rule produces `invalid_constraint` at the effective file and line and exits with code `1`. If an explicit type check fails for the same value, EnvLatch reports `invalid_type`. A rule for a key absent from the template produces `unknown_constraint_key`. Malformed rules are input errors and exit with code `2`. Reports omit actual values, allowed choices and bounds.
+
+Try these rules with the [complete example](https://github.com/sinzbtw/envlatch/blob/main/examples/constraints/envlatch.json).
+
+```sh
+envlatch --config examples/constraints/envlatch.json
+```
+
+Both Python APIs accept the same mapping via `constraints=`, for example `check(".env.example", ".env", constraints={"WORKERS": {"min": 1}})`.
 
 ## Optional keys
 
@@ -331,7 +361,7 @@ Comparison configuration uses `environments` instead of the single-environment `
 }
 ~~~
 
-The [committed comparison example](https://github.com/sinzbtw/envlatch/blob/main/examples/compare/envlatch.json) includes the template and all environment files. In JSON, file lists are nonempty arrays; paths are relative to the config directory. `optional`, `allow_extra`, `strict`, `types` and `format` keep their existing meanings and apply separately to every environment.
+The [committed comparison example](https://github.com/sinzbtw/envlatch/blob/main/examples/compare/envlatch.json) includes the template and all environment files. In JSON, file lists are nonempty arrays and paths are relative to the config directory. `optional`, `allow_extra`, `strict`, `types` and `constraints` apply separately to every environment. `format` controls the comparison report.
 
 - Each environment receives the normal missing, blank, syntax, duplicate and declared-type checks. Required missing/blank keys remain errors. Differences in presence/blankness for optional or extra keys are warnings; strict mode still controls extra keys only.
 - Nonblank values without declared types are compared by compatible syntax: boolean, integer, URL, or otherwise string. `0` and `1` are compatible with both boolean and integer; `port` is checked only when explicitly declared. Incompatible types produce `type_mismatch` and exit `1`. A declared type takes precedence; a failing type rule produces the existing `invalid_type` instead of a duplicate drift error. Declare credentials as `string` when their literal syntax varies.

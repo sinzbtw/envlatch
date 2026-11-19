@@ -145,6 +145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             optional_keys=optional,
             allow_extra=allowed,
             types=settings.types,
+            constraints=settings.constraints,
         )
     except InputError as error:
         if output_format in ("json", "github"):

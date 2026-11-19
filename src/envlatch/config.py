@@ -7,9 +7,11 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .core import InputError, validate_types
+from .core import InputError, validate_constraints, validate_types
 
-_FIELDS = frozenset(("template", "env", "strict", "optional", "allow_extra", "format", "types"))
+_FIELDS = frozenset(
+    ("template", "env", "strict", "optional", "allow_extra", "format", "types", "constraints")
+)
 _FORMATS = ("text", "json", "github")
 
 
@@ -22,6 +24,7 @@ class Config:
     allow_extra: tuple[str, ...] = ()
     output_format: str = "text"
     types: dict[str, str] = field(default_factory=dict)
+    constraints: dict[str, dict] = field(default_factory=dict, repr=False)
 
 
 class _InvalidJSON(ValueError):
@@ -90,7 +93,7 @@ def load_config(path: str | Path) -> Config:
 def _settings(data: dict, base: Path) -> Config:
     if data.keys() - _FIELDS:
         raise InputError(
-            "Unknown configuration option. Allowed options: template, env, strict, optional, allow_extra, format, types."
+            "Unknown configuration option. Allowed options: template, env, strict, optional, allow_extra, format, types, constraints."
         )
     if "strict" in data and not isinstance(data["strict"], bool):
         raise InputError("Configuration field 'strict' requires a boolean.")
@@ -109,6 +112,10 @@ def _settings(data: dict, base: Path) -> Config:
     if "types" in data and not isinstance(data["types"], dict):
         raise InputError("Configuration field 'types' requires an object mapping names to types.")
     types = validate_types(data.get("types"))
+    constraints = data.get("constraints", {})
+    if not isinstance(constraints, dict):
+        raise InputError("Configuration field 'constraints' requires an object of value rules.")
+    validate_constraints(constraints)
     return Config(
         template,
         environments,
@@ -117,4 +124,5 @@ def _settings(data: dict, base: Path) -> Config:
         allowed,
         data.get("format", "text"),
         types,
+        constraints,
     )

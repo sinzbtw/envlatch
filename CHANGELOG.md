@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 — 2026-11-19
+
+Catch invalid settings that still have the right type.
+
+- Add opt-in `one_of`, `min` and `max` value constraints through JSON configuration and the Python APIs.
+- Apply constraints to effective values after file overlays, both in ordinary checks and separately in each named environment in `compare`.
+- Report the affected key and its effective file and line while keeping actual values, allowed choices and bounds out of diagnostics.
+- Preserve existing type and optional-key behavior, exit codes and JSON report schemas.
+
 ## 0.7.0 — 2026-11-03
 
 Compare configuration across dev, staging and production without displaying variable values.

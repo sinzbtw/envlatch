@@ -1,0 +1,13 @@
+{
+  "template": "template.env.example",
+  "env": ["development.env"],
+  "strict": true,
+  "types": {
+    "PORT": "port"
+  },
+  "constraints": {
+    "LOG_LEVEL": {"one_of": ["debug", "info", "warning", "error"]},
+    "PORT": {"min": 1024},
+    "WORKERS": {"min": 1, "max": 16}
+  }
+}
